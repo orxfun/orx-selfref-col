@@ -16,17 +16,16 @@ To avoid this, one can use indices which is neither nice or safe.
 
 In other words,
 * by keeping the references valid,
-* preventing bringing in external references, and
-* leaking out references,
+* preventing to bring in external references, and
+* preventing to leak out references,
 
 it is safe to build the self referential collection with regular `&` references.
 
-[orx-linked-list](https://crates.io/crates/orx-linked-list) crate defines both singly and doubly linked lists based on `SelfRefCol` without requiring:
-* any use of the `unsafe` keyword,
-* any pointer dereferencing, or
-* any access by indices.
-
-Note that the [`std::collections::linked_list::LinkedList`](https://doc.rust-lang.org/src/alloc/collections/linked_list.rs.html) implementation contains more than sixty `unsafe` code blocks.
+[orx-linked-list](https://crates.io/crates/orx-linked-list) crate defines both singly and doubly linked lists based on `SelfRefCol`:
+* without any pointer dereferencing,
+* without any access by indices, and
+* with only a couple unsafe calls.
+Note that the [`std::collections::linked_list::LinkedList`](https://doc.rust-lang.org/src/alloc/collections/linked_list.rs.html) implementation contains more than 60 `unsafe` code blocks.
 
 ### Convenient
 
