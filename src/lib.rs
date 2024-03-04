@@ -97,7 +97,7 @@
 //!     * `MemoryReclaimNever` will never claim closed nodes.
 //!     * `MemoryReclaimOnThreshold<D>` will claim memory of closed nodes whenever the ratio of closed nodes exceeds one over `2^D`.
 //!
-//! ## Example
+//! ### Example
 //!
 //! Consider the following four structs implementing `Variant` to define four different self referential collections.
 //! Note that the definitions are expressive and concise leading to efficient implementations.
@@ -148,6 +148,68 @@
 //!     type Next = NodeRefsVec<'a, Self, T>; // there might be any number of next nodes, namely children nodes
 //!     type Ends = NodeRefSingle<'a, Self, T>; // there is only one end, namely the root of the tree
 //! }
+//! ```
+//!
+//! ## `NodeIndex`
+//!
+//! `NodeIndex` belongs in the intersection of the two features efficient and safe.
+//!
+//! A `NodeIndex` is a struct holding a reference to an element of the collection. It provides constant time access to the element. Furthermore, a node index can be stored independently of the collection, elsewhere.
+//!
+//! In this sense `NodeIndex` to a `SelfRefCol` is analogous to `usize` to standard `Vec`.
+//!
+//! However, it puts a special emphasis on safety and correctness. The following invalid uses cannot happen with `NodeIndex` and `SelfRefCol`.
+//!
+//! ### Cannot use a `NodeIndex` on a wrong `SelfRefCol`
+//!
+//! This issue can be observed with `usize` but not with `NodeIndex`.
+//!
+//! ```rust ignore
+//! use orx_selfref_col::*;
+//!
+//! let mut col1 = SelfRefCol::<Var, _>::new();
+//! let a = col1.mutate_take('a', |x, a| x.push_get_ref(a).index(&x));
+//!
+//! let col2 = SelfRefCol::<Var, _>::new();
+//!
+//! assert!(!a.is_valid_for_collection(&col2)); // we cannot dereference 'a' with 'col2'!
+//! ```
+//!
+//! ### Cannot use a `NodeIndex` after the corresponding element is removed
+//!
+//! This issue can be observed with `usize` but not with `NodeIndex`.
+//!
+//! ```rust ignore
+//! let mut col = SelfRefCol::<Var, _>::new();
+//! let [a, b, c, d, e, f, g] = col
+//!     .mutate_take(['a', 'b', 'c', 'd', 'e', 'f', 'g'], |x, values| {
+//!         values.map(|val| x.push_get_ref(val).index(&x))
+//!     });
+//!
+//! let removed_b = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // does not trigger reclaim yet
+//!
+//! assert!(!b.is_valid_for_collection(&col)); // we cannot dereference 'b' as it is removed.
+//! ```
+//!
+//! ### Cannot use a `NodeIndex` after a reorganization of the elements
+//!
+//! This is a specific to `SelfRefCol` with lazy node closure, only when `MemoryReclaimOnThreshold` policy is used. It never happens for `MemoryReclaimNever` policy.
+//!
+//! Once the node utilization drops down a determined value, the collection reorganizes its elements and reclaims the memory of the closed nodes. This invalidates all indices created beforehand, preventing any wrong access.
+//!
+//! This is analogous to removing the first element of a vector while our index is pointing to the 3rd element. After the removal, the elements of the vector are reorganized, and our index is now pointing to a wrong element. `NodeIndex` does not allow such an access.
+//!
+//! ```rust ignore
+//! let mut col = SelfRefCol::<Var, _>::new();
+//! let [a, b, c] = col.mutate_take(['a', 'b', 'c'], |x, values| {
+//!     values.map(|val| x.push_get_ref(val).index(&x))
+//! });
+//!
+//! let removed_b = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // triggers reclaim, elements reorganized
+//!
+//! assert!(!a.is_valid_for_collection(&col)); // all prior indices are invalidated!
+//! assert!(!b.is_valid_for_collection(&col));
+//! assert!(!c.is_valid_for_collection(&col));
 //! ```
 //!
 //! ## Crates using `SelfRefCol`
