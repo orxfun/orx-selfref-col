@@ -1,4 +1,12 @@
-use crate::{selfref_col_mut::SelfRefColMut, variants::variant::Variant, Node};
+use crate::{
+    nodes::{can_leak::CanLeak, node::Node},
+    selfref_col_mut::{into_mut, SelfRefColMut},
+    variants::{
+        memory_reclaim::{MemoryReclaimAlways, MemoryReclaimPolicy},
+        variant::Variant,
+    },
+    MemoryReclaimOnThreshold,
+};
 use orx_split_vec::{prelude::PinnedVec, Recursive, SplitVec};
 use std::marker::PhantomData;
 
@@ -42,6 +50,7 @@ use std::marker::PhantomData;
 /// ```rust
 /// use orx_selfref_col::*;
 ///
+/// #[derive(Clone, Copy)]
 /// struct SinglyListVariant;
 ///
 /// impl<'a, T: 'a> Variant<'a, T> for SinglyListVariant {
@@ -52,6 +61,7 @@ use std::marker::PhantomData;
 ///     type Ends = NodeRefSingle<'a, Self, T>; // there is only one end, namely the front of the list
 /// }
 ///
+/// #[derive(Clone, Copy)]
 /// struct DoublyListVariant;
 ///
 /// impl<'a, T: 'a> Variant<'a, T> for DoublyListVariant {
@@ -62,6 +72,7 @@ use std::marker::PhantomData;
 ///     type Ends = NodeRefsArray<'a, 2, Self, T>; // there are two ends, namely the front and back of the list
 /// }
 ///
+/// #[derive(Clone, Copy)]
 /// struct BinaryTreeVariant;
 ///
 /// impl<'a, T: 'a> Variant<'a, T> for BinaryTreeVariant {
@@ -72,6 +83,7 @@ use std::marker::PhantomData;
 ///     type Ends = NodeRefSingle<'a, Self, T>; // there is only one end, namely the root of the tree
 /// }
 ///
+/// #[derive(Clone, Copy)]
 /// struct DynamicTreeVariant;
 ///
 /// impl<'a, T: 'a> Variant<'a, T> for DynamicTreeVariant {
@@ -95,6 +107,7 @@ where
     pub(crate) ends: V::Ends,
     pub(crate) pinned_vec: P,
     pub(crate) len: usize,
+    pub(crate) memory_reclaim_policy: V::MemoryReclaim,
     pub(crate) phantom: PhantomData<&'a V>,
 }
 
@@ -112,6 +125,7 @@ where
             ends: V::Ends::default(),
             pinned_vec: Default::default(),
             len: 0,
+            memory_reclaim_policy: Default::default(),
             phantom: Default::default(),
         }
     }
@@ -148,30 +162,61 @@ where
         self.len = 0;
     }
 
-    /// One of the five reference mutation methods:
-    /// * [`SelfRefCol::move_mutate`]
-    /// * [`SelfRefCol::mutate_take`]
-    /// * [`SelfRefCol::move_mutate_take`]
-    /// * [`SelfRefCol::mutate_filter_collect`]
+    /// Manually attempts to reclaim closed nodes.
+    ///
+    /// # Safety
+    ///
+    /// Note that reclaiming closed nodes invalidates node indices (`NodeIndex`) which are already stored outside of this collection.
+    ///
+    /// * when `MemoryReclaim` policy is set to **`MemoryReclaimOnThreshold`**, there is no safety concern:
+    ///   * In this policy, memory reclaim operations automatically happen whenever utilization is below a threshold.
+    ///   * Therefore, manually triggering the reclaim operation is no different.
+    ///   * `NodeIndex` compares the memory state of the collection and:
+    ///     * `NodeIndex::get_ref` returns `None` in such a case, or
+    ///     * `NodeIndex::as_ref` panics (equivalent to unwrapping the result of `get_ref`).
+    /// * when `MemoryReclaim` policy is set to **`MemoryReclaimNever`**; however, the caller takes responsibility:
+    ///   * In this policy, memory reclaim operations never happen implicitly.
+    ///   * This can be considered as a performance optimization for cases where removals are rare.
+    ///   * This further gives the luxury to keep size of the `NodeIndex` equal to one pointer (rather than two pointers as in the `MemoryReclaimOnThreshold` case).
+    ///   * However, this means that `NodeIndex` is not able to detect the memory reclaims. The safety rule is then as follows:
+    ///     * Node indices will never be invalid due to implicit memory reclaim operations.
+    ///     * Node indices will be invalidated and must not be used whenever `SelfRefCol::reclaim_closed_nodes(&mut self)` is manually called.
+    ///   * Importantly, note that this will not lead to UB.
+    ///     * The safety concern is more around correctness of the reference rather than memory read violations.
+    ///     * `SelfRefCol` will never allow to read outside its memory.
+    pub fn reclaim_closed_nodes(&mut self)
+    where
+        P: 'a,
+        MemoryReclaimOnThreshold<32>:
+            MemoryReclaimPolicy<'a, V, T, <V as Variant<'a, T>>::Prev, <V as Variant<'a, T>>::Next>,
+    {
+        let mut vecmut = SelfRefColMut::new(self);
+        MemoryReclaimAlways::reclaim_closed_nodes(&mut vecmut);
+    }
+
+    /// Method allowing to mutate the collection.
     ///
     /// This method takes the following arguments:
-    /// * `value_to_move` is, as the name suggests, a value to be moved to the mutation lambda.
-    /// Most common reason to move this value to the lambda is to add it to the self referential collection.
-    /// * `move_mutate_lambda` is the expression defining the mutation.
-    ///   * The lambda takes two parameters.
-    ///   * The first parameter is the `SelfRefColMut` type which is the key for all `SelfRefNode` mutation methods to provide safety guarantees.
-    ///   * The second parameter is the value moved into the lambda, which is exactly the `value_to_move` parameter of this method.
+    /// * **`value_to_move`** is, as the name suggests, a value to be moved to the mutation lambda.
+    /// Two common use cases to move this value to the lambda are:
+    ///   * to add moved element(s) of `T` to the self referential collection,
+    ///   * to use moved `NodeIndex` (indices) to access elements in constant time.
+    /// * **`move_mutate_lambda`** is the expression defining the mutation.
+    ///   * The lambda takes two parameters:
+    ///     * the first parameter is the `SelfRefColMut` type which is the key for all `SelfRefNode` mutation and constant-time access methods;
+    ///     * the second parameter is the value moved into the lambda, which is exactly the `value_to_move` parameter of this method.
     ///   * Note that the lambda is of a function pointer type; i.e., `fn`, rather than a function trait such as `FnOnce`.
-    /// This is intentional and critical in terms of the safety guarantees.
-    /// Its purpose is to prevent capturing data from the environment, as well as, prevent leaking vector references to outside of the lambda.
+    /// This is intentional and critical for safety guarantees of the collection.
+    /// This prevents capturing data from the environment, as well as, prevents leaking references outside of the lambda.
     ///
     /// This design allows to conveniently mutate the references within the vector without the complexity of lifetimes and borrow checker.
-    /// Prior references can be broken, references can be rearranged or new references can be built easily and all in one function.
-    /// This convenience while being safe is achieved by the encapsulation of all mutations within a non-capturing lambda.
+    /// Prior references can be broken, references can be rearranged or new references can be built easily.
+    /// Furthermore, references by `NodeIndex` can be used for direct constant-time access to elements.
+    /// This convenience is achieved by the encapsulation of all mutations within a non-capturing lambda.
     ///
     /// # Example
     ///
-    /// The following code block demonstrates the use of the `move_mutate` function to define the push-front method of a singly linked list.
+    /// The following code block demonstrates the use of the `mutate` function to define the push-front method of a singly linked list.
     /// Note that `self.col` below is a `SelfRefCol`.
     /// The pushed `value` is moved to the lambda.
     /// Inside the lambda, this value is pushed to the list, which is stored inside a linked list node.
@@ -179,21 +224,20 @@ where
     ///
     /// ```rust ignore
     /// pub fn push_front(&mut self, value: T) {
-    ///     self.col
-    ///         .move_mutate(value, |x, value| match x.ends().front() {
-    ///             Some(prior_front) => {
-    ///                 let new_front = x.push_get_ref(value);
-    ///                 new_front.set_next(&x, prior_front);
-    ///                 x.set_ends(new_front);
-    ///             }
-    ///             None => {
-    ///                 let node = x.push_get_ref(value);
-    ///                 x.set_ends(node);
-    ///             }
-    ///         });
+    ///     self.col.mutate(value, |x, value| match x.ends().front() {
+    ///         Some(prior_front) => {
+    ///             let new_front = x.push_get_ref(value);
+    ///             new_front.set_next(&x, prior_front);
+    ///             x.set_ends(new_front);
+    ///         }
+    ///         None => {
+    ///             let node = x.push_get_ref(value);
+    ///             x.set_ends([Some(node), Some(node)]);
+    ///         }
+    ///     });
     /// }
     /// ```
-    pub fn move_mutate<Move>(
+    pub fn mutate<Move>(
         &mut self,
         value_to_move: Move,
         move_mutate_lambda: fn(SelfRefColMut<'_, 'a, V, T, P>, Move),
@@ -202,29 +246,34 @@ where
         move_mutate_lambda(vecmut, value_to_move);
     }
 
-    /// One of the five reference mutation methods:
-    /// * [`SelfRefCol::move_mutate`]
-    /// * [`SelfRefCol::mutate_take`]
-    /// * [`SelfRefCol::move_mutate_take`]
-    /// * [`SelfRefCol::mutate_filter_collect`]
-    /// * [`SelfRefCol::move_append_mutate`]
+    /// Method allowing to mutate the collection and and return values from the collection.
     ///
-    /// This method takes one argument:
+    /// This method can only return types which implement `CanLeak`.
+    /// Note that only `T` and `NodeIndex`, and types wrapping these two types, such as `Option` or `Vec`, implement `CanLeak`.
+    /// This ensures the safety guarantees ara maintained.
+    ///
+    /// This method takes two arguments:
+    /// * **`value_to_move`** is, as the name suggests, a value to be moved to the mutation lambda.
+    /// Two common use cases to move this value to the lambda are:
+    ///   * to add moved element(s) of `T` to the self referential collection,
+    ///   * to use moved `NodeIndex` (indices) to access elements in constant time.
     /// * `mutate_get_lambda` is the expression defining the mutation.
-    ///   * The lambda takes one parameter of `SelfRefColMut` type which is the key for all `SelfRefNode` mutation methods to provide safety guarantees.
-    ///   * It returns an optional value of `T` which is the underlying element type of the self referential collection.
+    ///   * The lambda takes two parameters:
+    ///     * the first parameter is the `SelfRefColMut` type which is the key for all `SelfRefNode` mutation and constant-time access methods;
+    ///     * the second parameter is the value moved into the lambda, which is exactly the `value_to_move` parameter of this method.
+    ///   * And it returns a type implementing `CanLeak` to make sure that safety guarantees of `SelfRefCol` are maintained.
     ///   * Note that the lambda is of a function pointer type; i.e., `fn`, rather than a function trait such as `FnOnce`.
     /// This is intentional and critical in terms of the safety guarantees.
     /// Its purpose is to prevent capturing data from the environment, as well as, prevent leaking vector references to outside of the lambda.
     ///
-    /// This method is the counterpart of the `move_mutate`.
-    /// Its main purpose is to take an element out of the collection and return it while preserving the internal references through the mutations.
-    ///
     /// This design allows to conveniently mutate the references within the vector without the complexity of lifetimes and borrow checker.
-    /// Prior references can be broken, references can be rearranged or new references can be built easily and all in one function.
-    /// This convenience while being safe is achieved by the encapsulation of all mutations within a non-capturing lambda.
+    /// Prior references can be broken, references can be rearranged or new references can be built easily.
+    /// Furthermore, references by `NodeIndex` can be used for direct constant-time access to elements.
+    /// This convenience is achieved by the encapsulation of all mutations within a non-capturing lambda.
     ///
-    /// # Example
+    /// # Examples
+    ///
+    /// ## Example - Take out Value
     ///
     /// The following code block demonstrates the use of the `mutate_take` function to define the pop-front method of a singly linked list.
     /// Note that `self.vec` below is a `SelfRefCol`.
@@ -238,69 +287,51 @@ where
     ///     self.col.mutate_take(|x| {
     ///         x.ends().front().map(|prior_front| {
     ///             let new_front = *prior_front.next().get();
-    ///             x.set_ends(new_front);
+    ///             let new_back = some_only_if(new_front.is_some(), x.ends().back());
+    ///             x.set_ends([new_front, new_back]);
+    ///
+    ///             if let Some(new_front) = new_front {
+    ///                 new_front.clear_prev(&x);
+    ///             }
+    ///             
     ///             prior_front.close_node_take_data(&x)
     ///         })
     ///     })
     /// }
     /// ```
-    pub fn mutate_take(
-        &mut self,
-        mutate_take_lambda: fn(SelfRefColMut<'_, 'a, V, T, P>) -> Option<T>,
-    ) -> Option<T> {
-        let vecmut = SelfRefColMut::new(self);
-        mutate_take_lambda(vecmut)
-    }
-
-    /// One of the five reference mutation methods:
-    /// * [`SelfRefCol::move_mutate`]
-    /// * [`SelfRefCol::mutate_take`]
-    /// * [`SelfRefCol::move_mutate_take`]
-    /// * [`SelfRefCol::mutate_filter_collect`]
-    /// * [`SelfRefCol::move_append_mutate`]
     ///
-    /// This method can be considered as the combination of `move_mutate` and `mutate_take` where we:
-    /// * move a value to the lambda, and hence, to the vector,
-    /// * apply reference mutations encapsulated inside the lambda,
-    /// * take out one element from the vector.
+    /// ## Example - Take out `NodeIndex`
     ///
-    /// This method is most suitable for swap methods.
-    ///
-    /// # Example
-    ///
-    /// The following code block demonstrates the use of `move_mutate_take` function to define the swap-front method of a singly linked list.
-    /// * when the list is empty, we simply push the value as the first element and return None;
-    /// * otherwise, we take out the value of the current front node, replace it with the given value, and return the taken out value.
+    /// The following is exactly the same `push_front` example given in `mutate` example.
+    /// However, we return an index, `NodeIndex`, to the pushed element this time.
+    /// This index can later be used to have a constant time access to the element.
     ///
     /// ```rust ignore
-    /// pub fn swap_front(&mut self, new_front: T) -> Option<T> {
-    ///     self.col
-    ///         .move_mutate_take(new_front, |x, value| match x.ends().front() {
-    ///             Some(front_node) => Some(front_node.swap_data(&x, value)),
-    ///             None => {
-    ///                 let node = x.push_get_ref(value);
-    ///                 x.set_ends(node);
-    ///                 None
-    ///             }
-    ///         })
+    /// pub fn push_front(&mut self, value: T) -> NodeIndex<'_, V, T> {
+    ///     self.col.mutate(value, |x, value| match x.ends().front() {
+    ///         Some(prior_front) => {
+    ///             let new_front = x.push_get_ref(value);
+    ///             new_front.set_next(&x, prior_front);
+    ///             x.set_ends(new_front);
+    ///             new_front.index(&x)
+    ///         }
+    ///         None => {
+    ///             let node = x.push_get_ref(value);
+    ///             x.set_ends([Some(node), Some(node)]);
+    ///             node.index(&x)
+    ///         }
+    ///     });
     /// }
     /// ```
-    pub fn move_mutate_take<Move>(
+    pub fn mutate_take<Move, Take: CanLeak<'a, V, T, P>>(
         &mut self,
         value_to_move: Move,
-        move_mutate_take_lambda: fn(SelfRefColMut<'_, 'a, V, T, P>, Move) -> Option<T>,
-    ) -> Option<T> {
+        move_mutate_take_lambda: fn(SelfRefColMut<'_, 'a, V, T, P>, Move) -> Take,
+    ) -> Take {
         let vecmut = SelfRefColMut::new(self);
         move_mutate_take_lambda(vecmut, value_to_move)
     }
 
-    /// One of the five reference mutation methods:
-    /// * [`SelfRefCol::move_mutate`]
-    /// * [`SelfRefCol::mutate_take`]
-    /// * [`SelfRefCol::move_mutate_take`]
-    /// * [`SelfRefCol::mutate_filter_collect`]
-    /// * [`SelfRefCol::move_append_mutate`]
-    ///
     /// This method takes three arguments:
     /// * `predicate` is the function to be used to select elements to be kept.
     /// * `collect` is the closure to collect the elements which does not satisfy the predicate and will be removed from this collection.
@@ -324,7 +355,7 @@ where
     /// ```rust
     /// use orx_selfref_col::*;
     ///
-    /// #[derive(Debug)]
+    /// #[derive(Debug, Clone, Copy)]
     /// struct Var;
     /// impl<'a> Variant<'a, String> for Var {
     ///     type Storage = NodeDataLazyClose<String>;
@@ -337,7 +368,7 @@ where
     /// // build up collection
     /// let mut col = SelfRefCol::<Var, _>::new();
     /// let values = ['a', 'b', 'c', 'd', 'e'];
-    /// col.move_mutate(values.map(|x| x.to_string()), |x, vals| {
+    /// col.mutate(values.map(|x| x.to_string()), |x, vals| {
     ///     for value in vals {
     ///         let _ = x.push_get_ref(value);
     ///     }
@@ -376,41 +407,42 @@ where
         let vecmut = SelfRefColMut::new(self);
         mutate_filter_collect_lambda(vecmut, predicate, collect);
     }
+
+    // helpers
+    pub(crate) fn memory_reclaimed(&mut self) {
+        self.memory_reclaim_policy = self.memory_reclaim_policy.successor_state();
+    }
 }
 
 type RecursiveSplitVec<'a, V, T> = SplitVec<Node<'a, V, T>, Recursive>;
 type RecursiveSelfRefColMut<'rf, 'a, V, T> =
     SelfRefColMut<'rf, 'a, V, T, RecursiveSplitVec<'a, V, T>>;
+
 impl<'a, V, T> SelfRefCol<'a, V, T, SplitVec<Node<'a, V, T>, Recursive>>
 where
     V: Variant<'a, T>,
 {
-    /// One of the five reference mutation methods:
-    /// * [`SelfRefCol::move_mutate`]
-    /// * [`SelfRefCol::mutate_take`]
-    /// * [`SelfRefCol::move_mutate_take`]
-    /// * [`SelfRefCol::mutate_filter_collect`]
-    /// * [`SelfRefCol::move_append_mutate`]
-    ///
-    /// This method appends to self referential collections.
-    /// Note that this method is available in self referential collections using an underlying pinned vector with `orx_split_vec::Recursive` growth.
+    /// This method appends another self collection to this collection.
+    /// Note that this method is available in self referential collections using an underlying pinned vector with
+    /// [`orx_split_vec::Recursive`](https://docs.rs/orx-split-vec/latest/orx_split_vec/struct.Recursive.html) growth.
     /// This allows appending underlying vectors in constant time.
     ///
     /// This method takes the following arguments:
     /// * `other` is the other self referential collection to be appended to this collection.
     /// * `value_to_move` is, as the name suggests, a value to be moved to the mutation lambda.
-    /// * `move_append_mutate_lambda` is the expression defining the mutation.
+    /// * `append_mutate_lambda` is the expression defining the mutation.
     ///   * The lambda takes three parameters.
-    ///   * The first parameter is the `SelfRefColMut` type which is the key for all `SelfRefNode` mutation methods to provide safety guarantees.
-    ///   * The second parameter is simply the same; however, of the `other` collection.
+    ///   * The first parameter is the `SelfRefColMut` type which is the mutation key for this collection.
+    ///   * The second parameter is the `SelfRefColMut` key of the `other` collection.
     ///   * The third parameter is the value moved into the lambda, which is exactly the `value_to_move` parameter of this method.
     ///   * Note that the lambda is of a function pointer type; i.e., `fn`, rather than a function trait such as `FnOnce`.
     /// This is intentional and critical in terms of the safety guarantees.
     /// Its purpose is to prevent capturing data from the environment, as well as, prevent leaking vector references to outside of the lambda.
     ///
     /// This design allows to conveniently mutate the references within the vector without the complexity of lifetimes and borrow checker.
-    /// Prior references can be broken, references can be rearranged or new references can be built easily and all in one function.
-    /// This convenience while being safe is achieved by the encapsulation of all mutations within a non-capturing lambda.
+    /// Prior references can be broken, references can be rearranged or new references can be built easily.
+    /// Furthermore, references by `NodeIndex` can be used for direct constant-time access to elements.
+    /// This convenience is achieved by the encapsulation of all mutations within a non-capturing lambda.
     ///
     /// # Example
     ///
@@ -438,21 +470,22 @@ where
     ///     });
     /// }
     /// ```
-    pub fn move_append_mutate<Move>(
+    pub fn append_mutate<Move>(
         &mut self,
-        mut other: Self,
+        other: Self,
         value_to_move: Move,
-        move_append_mutate_lambda: fn(
+        append_mutate_lambda: fn(
             RecursiveSelfRefColMut<'_, 'a, V, T>,
             RecursiveSelfRefColMut<'_, 'a, V, T>,
             Move,
         ),
     ) {
-        let x = SelfRefColMut::new(self);
-        let y = SelfRefColMut::new(&mut other);
-        move_append_mutate_lambda(x, y, value_to_move);
         self.len += other.len;
+        let mut_other = unsafe { into_mut(&other) };
         self.pinned_vec.append(other.pinned_vec);
+        let x = SelfRefColMut::new(self);
+        let y = SelfRefColMut::new(mut_other);
+        append_mutate_lambda(x, y, value_to_move);
     }
 }
 
@@ -474,8 +507,9 @@ mod tests {
         MemoryReclaimNever, NodeData, NodeDataLazyClose, NodeRefSingle, NodeRefs, NodeRefsArray,
         NodeRefsVec,
     };
+    use float_cmp::approx_eq;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     struct Var;
     impl<'a> Variant<'a, String> for Var {
         type Storage = NodeDataLazyClose<String>;
@@ -503,7 +537,7 @@ mod tests {
         let mut col = SelfRefCol::<Var, _>::new();
 
         let values = ["a", "b", "c", "d"].map(|x| x.to_string());
-        col.move_mutate(values, |x, values| {
+        col.mutate(values, |x, values| {
             for val in values {
                 let rf = x.push_get_ref(val);
                 x.set_ends([Some(rf), Some(rf)]);
@@ -521,17 +555,17 @@ mod tests {
     }
 
     #[test]
-    fn move_mutate() {
+    fn mutate() {
         let mut vec = SelfRefCol::<Var, _>::new();
 
         let text = String::from("a");
-        vec.move_mutate(text, |x, a| {
+        vec.mutate(text, |x, a| {
             let _ = x.push_get_ref(a);
         });
         assert_eq!(vec.pinned_vec.len(), 1);
         assert_eq!(vec.pinned_vec[0].data.get().unwrap(), "a");
 
-        vec.move_mutate(String::from("b"), |x, b| {
+        vec.mutate(String::from("b"), |x, b| {
             let _ = x.push_get_ref(b);
         });
 
@@ -545,12 +579,12 @@ mod tests {
         let mut vec = SelfRefCol::<Var, _>::new();
 
         let text = String::from("a");
-        vec.move_mutate(text.clone(), |x, a| {
+        vec.mutate(text.clone(), |x, a| {
             let ref_a = x.push_get_ref(a);
             x.set_ends([Some(ref_a), None]);
         });
 
-        let text_back = vec.mutate_take(|x| {
+        let text_back = vec.mutate_take((), |x, _| {
             let first = x.ends().get()[0];
             let data = first.map(|n| n.close_node_take_data(&x));
             x.set_ends([None, None]);
@@ -565,20 +599,19 @@ mod tests {
         let mut vec = SelfRefCol::<Var, _>::new();
 
         // when empty
-        let taken = vec.move_mutate_take("a".to_string(), |x, a| {
+        let taken: Option<String> = vec.mutate_take("a".to_string(), |x, a| {
             let _ = x.push_get_ref(a);
             None
         });
         assert!(taken.is_none());
 
         // with some taken value
-        let taken =
-            vec.move_mutate_take(["b".to_string(), "c".to_string()], |x, vals| match vals {
-                [b, c] => {
-                    let ref_b = x.push_get_ref(b);
-                    Some(x.swap_data(ref_b, c))
-                }
-            });
+        let taken = vec.mutate_take(["b".to_string(), "c".to_string()], |x, vals| match vals {
+            [b, c] => {
+                let ref_b = x.push_get_ref(b);
+                Some(x.swap_data(ref_b, c))
+            }
+        });
         assert_eq!(taken, Some("b".to_string()));
     }
 
@@ -607,7 +640,7 @@ mod tests {
 
         // when single item
         let mut col = SelfRefCol::<Var, _>::new();
-        col.move_mutate("a".to_string(), |x, a| {
+        col.mutate("a".to_string(), |x, a| {
             let _ = x.push_get_ref(a);
         });
         let mut vec = vec![];
@@ -628,7 +661,7 @@ mod tests {
         // when multiple items
         let mut col = SelfRefCol::<Var, _>::new();
         let values = ['a', 'b', 'c', 'd', 'e'];
-        col.move_mutate(values.map(|x| x.to_string()), |x, vals| {
+        col.mutate(values.map(|x| x.to_string()), |x, vals| {
             for value in vals {
                 let _ = x.push_get_ref(value);
             }
@@ -661,7 +694,7 @@ mod tests {
     #[test]
     fn move_append_mutate() {
         let mut col = SelfRefCol::<Var, _>::new();
-        col.move_mutate(["a", "b", "c"].map(|x| x.to_string()), |x, values| {
+        col.mutate(["a", "b", "c"].map(|x| x.to_string()), |x, values| {
             for val in values {
                 let _ = x.push_get_ref(val);
             }
@@ -669,14 +702,14 @@ mod tests {
         });
 
         let mut other = SelfRefCol::<Var, _>::new();
-        other.move_mutate(["d", "e"].map(|x| x.to_string()), |x, values| {
+        other.mutate(["d", "e"].map(|x| x.to_string()), |x, values| {
             for val in values {
                 let _ = x.push_get_ref(val);
             }
             x.set_ends([x.first_node(), x.last_node()]);
         });
 
-        col.move_append_mutate(other, (), |x, y, _| {
+        col.append_mutate(other, (), |x, y, _| {
             x.set_ends([x.first_node(), y.last_node()]);
         });
 
@@ -694,5 +727,30 @@ mod tests {
             col.ends().get()[1].map(|x| x.data().unwrap().as_str()),
             Some(&"e").copied()
         );
+    }
+
+    #[test]
+    fn reclaim_closed_nodes() {
+        let mut col = SelfRefCol::<Var, _>::new();
+        let values = ['a', 'b', 'c', 'd', 'e', 'f'].map(|x| x.to_string());
+        let [a, b, c, _, _, _] = col.mutate_take(values, |x, values| {
+            values.map(|val| x.push_get_ref(val).index(&x))
+        });
+
+        assert!(approx_eq!(f32, col.node_utilization(), 6.0 / 6.0, ulps = 2));
+
+        col.mutate_take(a, |x, a| a.as_ref(&x).close_node_take_data(&x));
+        assert!(approx_eq!(f32, col.node_utilization(), 5.0 / 6.0, ulps = 2));
+
+        col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x));
+        assert!(approx_eq!(f32, col.node_utilization(), 4.0 / 6.0, ulps = 2));
+
+        col.mutate_take(c, |x, c| c.as_ref(&x).close_node_take_data(&x));
+        assert!(approx_eq!(f32, col.node_utilization(), 3.0 / 6.0, ulps = 2));
+
+        col.reclaim_closed_nodes();
+
+        dbg!(col.node_utilization());
+        assert!(approx_eq!(f32, col.node_utilization(), 3.0 / 3.0, ulps = 2));
     }
 }

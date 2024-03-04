@@ -17,6 +17,11 @@ impl<T> NodeData<T> for NodeDataLazyClose<T> {
     }
 
     #[inline(always)]
+    fn is_active(&self) -> bool {
+        self.0.is_some()
+    }
+
+    #[inline(always)]
     fn get_mut(&mut self) -> Option<&mut T> {
         self.0.as_mut()
     }

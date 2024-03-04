@@ -1,6 +1,6 @@
 use crate::data::node_data::NodeData;
 use crate::variants::variant::Variant;
-use crate::{NodeDataLazyClose, NodeRefsArray, NodeRefsVec, SelfRefColMut};
+use crate::{NodeDataLazyClose, NodeIndex, NodeRefsArray, NodeRefsVec, SelfRefColMut};
 use orx_split_vec::prelude::PinnedVec;
 
 /// A node of the self referential collection.
@@ -40,6 +40,11 @@ where
     }
 
     // get
+    /// Returns whether the node is active, or closed otherwise.
+    pub fn is_active(&self) -> bool {
+        self.data.is_active()
+    }
+
     /// Returns a reference to the data stored in the node; None if the node is closed.
     #[inline(always)]
     pub fn data(&self) -> Option<&T> {
@@ -65,6 +70,18 @@ where
     }
 
     // mut with mut key
+    /// Gets the index of the node.
+    ///
+    /// This index can be:
+    /// * stored independent of the self referential collection as a value,
+    /// * used to safely access to this node in ***O(1)*** time.
+    pub fn index<'rf, P>(&'a self, vec_mut: &SelfRefColMut<'rf, 'a, V, T, P>) -> NodeIndex<'a, V, T>
+    where
+        P: PinnedVec<Node<'a, V, T>>,
+    {
+        NodeIndex::new(vec_mut.memory_reclaim_policy, self)
+    }
+
     /// Swaps the data stored in the node with the `new_value` and returns the old data.
     ///
     /// # Panics
@@ -264,6 +281,7 @@ mod tests {
     };
     use orx_split_vec::prelude::PinnedVec;
 
+    #[derive(Debug, Clone, Copy)]
     struct Var;
     impl<'a> Variant<'a, char> for Var {
         type Storage = NodeDataLazyClose<char>;
@@ -294,6 +312,22 @@ mod tests {
         assert!(node.prev().get().unwrap().ref_eq(&x));
         assert!(node.next().get()[0].ref_eq(&y));
         assert_eq!(Some(&'z'), node.data());
+    }
+
+    #[test]
+    fn clone_does_not_clone_references() {
+        let x = Node::<Var, _>::new_free_node('x');
+        let y = Node::<Var, _>::new_free_node('y');
+        let node = Node::<Var, _>::new(
+            NodeDataLazyClose::active('z'),
+            NodeRefSingle::new(Some(&x)),
+            NodeRefsVec::new(vec![&y]),
+        );
+
+        let clone = node.clone(); // clone does not bring references!
+        assert!(clone.prev().get().is_none());
+        assert!(clone.next().get().is_empty());
+        assert_eq!(Some(&'z'), clone.data());
     }
 
     #[test]
@@ -341,11 +375,11 @@ mod tests {
 
     #[test]
     fn close_node_take_data() {
-        let mut vec = SelfRefCol::<Var, _>::new();
-        assert!(vec.pinned_vec.is_empty());
+        let mut col = SelfRefCol::<Var, _>::new();
+        assert!(col.pinned_vec.is_empty());
 
         {
-            let x = SelfRefColMut::new(&mut vec);
+            let x = SelfRefColMut::new(&mut col);
             let a = x.push_get_ref('a');
             assert!(a.is_active());
 
@@ -356,10 +390,45 @@ mod tests {
     }
 
     #[test]
+    fn close_node_take_data_no_reclaim() {
+        // will reclaim
+        let mut col = SelfRefCol::<Var, _>::new();
+        let a = col.mutate_take((), |x, _| {
+            let a = x.push_get_ref('a');
+            x.push_get_ref('b');
+            x.push_get_ref('c');
+            a.index(&x)
+        });
+
+        let memory_state = col.memory_reclaim_policy.0.id;
+
+        let val_a = col.mutate_take(a, |x, a| a.as_ref(&x).close_node_take_data(&x));
+        assert_eq!(val_a, 'a');
+
+        assert_ne!(col.memory_reclaim_policy.0.id, memory_state);
+
+        // will not reclaim
+        let mut col = SelfRefCol::<Var, _>::new();
+        let a = col.mutate_take((), |x, _| {
+            let a = x.push_get_ref('a');
+            x.push_get_ref('b');
+            x.push_get_ref('c');
+            a.index(&x)
+        });
+
+        let memory_state = col.memory_reclaim_policy.0.id;
+
+        let val_a = col.mutate_take(a, |x, a| a.as_ref(&x).close_node_take_data_no_reclaim(&x));
+        assert_eq!(val_a, 'a');
+
+        assert_eq!(col.memory_reclaim_policy.0.id, memory_state);
+    }
+
+    #[test]
     #[should_panic]
     fn close_node_take_data_on_closed_node() {
-        let mut vec = SelfRefCol::<Var, _>::new();
-        let x = SelfRefColMut::new(&mut vec);
+        let mut col = SelfRefCol::<Var, _>::new();
+        let x = SelfRefColMut::new(&mut col);
         let a = x.push_get_ref('a');
         assert!(a.is_active());
 
@@ -372,6 +441,7 @@ mod tests {
 
     #[test]
     fn set_clear_prev_next_single() {
+        #[derive(Debug, Clone, Copy)]
         struct Var;
         impl<'a> Variant<'a, char> for Var {
             type Storage = NodeDataLazyClose<char>;
@@ -381,11 +451,11 @@ mod tests {
             type MemoryReclaim = MemoryReclaimOnThreshold<2>;
         }
 
-        let mut vec = SelfRefCol::<Var, _>::new();
-        assert!(vec.pinned_vec.is_empty());
+        let mut col = SelfRefCol::<Var, _>::new();
+        assert!(col.pinned_vec.is_empty());
 
         {
-            let x = SelfRefColMut::new(&mut vec);
+            let x = SelfRefColMut::new(&mut col);
             let a = x.push_get_ref('a');
             let b = x.push_get_ref('b');
 
@@ -417,14 +487,15 @@ mod tests {
             b.set_prev(&x, a);
         }
 
-        let a = &vec.pinned_vec[0];
-        let b = &vec.pinned_vec[1];
+        let a = &col.pinned_vec[0];
+        let b = &col.pinned_vec[1];
         assert!(a.next().get().unwrap().ref_eq(b));
         assert!(b.prev().get().unwrap().ref_eq(a));
     }
 
     #[test]
     fn set_clear_prev_next_vec() {
+        #[derive(Debug, Clone, Copy)]
         struct Var;
         impl<'a> Variant<'a, char> for Var {
             type Storage = NodeDataLazyClose<char>;
@@ -483,6 +554,7 @@ mod tests {
 
     #[test]
     fn set_clear_prev_next_array() {
+        #[derive(Debug, Clone, Copy)]
         struct Var;
         impl<'a> Variant<'a, char> for Var {
             type Storage = NodeDataLazyClose<char>;

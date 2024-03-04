@@ -1,6 +1,5 @@
-use orx_split_vec::prelude::PinnedVec;
-
 use crate::{Node, SelfRefCol, Variant};
+use orx_split_vec::prelude::PinnedVec;
 
 impl<'a, V, T, P> FromIterator<T> for SelfRefCol<'a, V, T, P>
 where
@@ -14,6 +13,7 @@ where
             ends: V::Ends::default(),
             len: pinned_vec.len(),
             pinned_vec,
+            memory_reclaim_policy: Default::default(),
             phantom: Default::default(),
         }
     }
@@ -24,7 +24,7 @@ mod tests {
     use crate::*;
     use orx_split_vec::{prelude::PinnedVec, Recursive, SplitVec};
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     struct Var;
     impl<'a> Variant<'a, String> for Var {
         type Storage = NodeDataLazyClose<String>;

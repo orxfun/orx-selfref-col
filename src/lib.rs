@@ -105,6 +105,7 @@
 //! ```rust
 //! use orx_selfref_col::*;
 //!
+//! #[derive(Clone, Copy)]
 //! struct SinglyListVariant;
 //!
 //! impl<'a, T: 'a> Variant<'a, T> for SinglyListVariant {
@@ -115,6 +116,7 @@
 //!     type Ends = NodeRefSingle<'a, Self, T>; // there is only one end, namely the front of the list
 //! }
 //!
+//! #[derive(Clone, Copy)]
 //! struct DoublyListVariant;
 //!
 //! impl<'a, T: 'a> Variant<'a, T> for DoublyListVariant {
@@ -125,6 +127,7 @@
 //!     type Ends = NodeRefsArray<'a, 2, Self, T>; // there are two ends, namely the front and back of the list
 //! }
 //!
+//! #[derive(Clone, Copy)]
 //! struct BinaryTreeVariant;
 //!
 //! impl<'a, T: 'a> Variant<'a, T> for BinaryTreeVariant {
@@ -135,6 +138,7 @@
 //!     type Ends = NodeRefSingle<'a, Self, T>; // there is only one end, namely the root of the tree
 //! }
 //!
+//! #[derive(Clone, Copy)]
 //! struct DynamicTreeVariant;
 //!
 //! impl<'a, T: 'a> Variant<'a, T> for DynamicTreeVariant {
@@ -179,7 +183,7 @@ mod variants;
 pub use data::{
     eager_close::NodeDataEagerClose, lazy_close::NodeDataLazyClose, node_data::NodeData,
 };
-pub use nodes::node::Node;
+pub use nodes::{can_leak::CanLeak, index::NodeIndex, node::Node};
 pub use references::{
     array::NodeRefsArray, node_refs::NodeRefs, none::NodeRefNone, single::NodeRefSingle,
     vec::NodeRefsVec,

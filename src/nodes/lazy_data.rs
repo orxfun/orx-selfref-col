@@ -18,12 +18,6 @@ where
     pub fn is_closed(&self) -> bool {
         self.data.is_closed()
     }
-
-    /// Returns whether the node is active or not.
-    #[inline(always)]
-    pub fn is_active(&self) -> bool {
-        self.data.is_active()
-    }
 }
 
 #[cfg(test)]
@@ -31,6 +25,7 @@ mod tests {
     use super::*;
     use crate::{MemoryReclaimOnThreshold, NodeRefNone, NodeRefSingle, NodeRefs, NodeRefsVec};
 
+    #[derive(Debug, Clone, Copy)]
     struct Var;
     impl<'a> Variant<'a, char> for Var {
         type Storage = NodeDataLazyClose<char>;

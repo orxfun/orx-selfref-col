@@ -3,6 +3,9 @@ pub trait NodeData<T> {
     /// Creates a new active node data with the given `value`.
     fn active(value: T) -> Self;
 
+    /// Returns whether the storage is active, or closed otherwise.
+    fn is_active(&self) -> bool;
+
     /// Returns a reference to the stored value; returns None if the node is not active.
     fn get(&self) -> Option<&T>;
 
