@@ -17,6 +17,11 @@ impl<T> NodeData<T> for NodeDataEagerClose<T> {
     }
 
     #[inline(always)]
+    fn is_active(&self) -> bool {
+        true
+    }
+
+    #[inline(always)]
     fn get_mut(&mut self) -> Option<&mut T> {
         Some(&mut self.0)
     }
@@ -57,6 +62,12 @@ mod tests {
     fn get() {
         let data = NodeDataEagerClose::active(42);
         assert_eq!(Some(&42), data.get());
+    }
+
+    #[test]
+    fn is_active() {
+        let data = NodeDataEagerClose::active(42);
+        assert!(data.is_active());
     }
 
     #[test]

@@ -1,9 +1,8 @@
+use super::memory_reclaim::MemoryReclaimPolicy;
 use crate::{data::node_data::NodeData, references::node_refs::NodeRefs};
 
-use super::memory_reclaim::MemoryReclaimPolicy;
-
 /// Variant defining `SelfRefCol` specifications.
-pub trait Variant<'a, T>
+pub trait Variant<'a, T>: Clone + Copy
 where
     Self: Sized,
 {

@@ -51,7 +51,7 @@ mod tests {
     };
     use float_cmp::approx_eq;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     struct Var;
     impl<'a> Variant<'a, String> for Var {
         type Storage = NodeDataLazyClose<String>;
@@ -64,22 +64,22 @@ mod tests {
     #[test]
     fn node_utilization() {
         let n = 1_000;
-        let mut vec = SelfRefCol::<Var, _>::new();
-        assert!(approx_eq!(f32, vec.node_utilization(), 1.0, ulps = 2));
+        let mut col = SelfRefCol::<Var, _>::new();
+        assert!(approx_eq!(f32, col.node_utilization(), 1.0, ulps = 2));
 
         let values: Vec<_> = (0..n).map(|x| x.to_string()).collect();
-        vec.move_mutate(values, |x, values| {
+        col.mutate(values, |x, values| {
             for val in values {
                 _ = x.push_get_ref(val);
             }
             assert!(approx_eq!(f32, x.node_utilization(), 1.0, ulps = 2));
         });
 
-        assert_eq!(vec.len(), n);
-        assert_eq!(vec.pinned_vec.len(), n);
+        assert_eq!(col.len(), n);
+        assert_eq!(col.pinned_vec.len(), n);
 
         for i in 0..n {
-            vec.move_mutate((n, i), |x, (n, i)| {
+            col.mutate((n, i), |x, (n, i)| {
                 let node = &mut x.col.pinned_vec[i];
                 let value = node.data.close();
                 x.col.len -= 1;
@@ -90,27 +90,27 @@ mod tests {
             });
         }
 
-        assert!(approx_eq!(f32, vec.node_utilization(), 0.0, ulps = 2));
+        assert!(approx_eq!(f32, col.node_utilization(), 0.0, ulps = 2));
     }
 
     #[test]
     fn need_to_reclaim_vacant_nodes() {
         let n = 1_000;
-        let mut vec = SelfRefCol::<Var, _>::new();
+        let mut col = SelfRefCol::<Var, _>::new();
 
         let values: Vec<_> = (0..n).map(|x| x.to_string()).collect();
-        vec.move_mutate(values, |x, values| {
+        col.mutate(values, |x, values| {
             for val in values {
                 _ = x.push_get_ref(val);
             }
             assert!(!x.need_to_reclaim_vacant_nodes::<2>());
         });
 
-        assert_eq!(vec.len(), n);
-        assert_eq!(vec.pinned_vec.len(), n);
+        assert_eq!(col.len(), n);
+        assert_eq!(col.pinned_vec.len(), n);
 
         for i in 0..n {
-            vec.move_mutate((n, i), |x, (n, i)| {
+            col.mutate((n, i), |x, (n, i)| {
                 let node = &mut x.col.pinned_vec[i];
                 let value = node.data.close();
                 x.col.len -= 1;
@@ -122,6 +122,6 @@ mod tests {
             });
         }
 
-        assert!(approx_eq!(f32, vec.node_utilization(), 0.0, ulps = 2));
+        assert!(approx_eq!(f32, col.node_utilization(), 0.0, ulps = 2));
     }
 }

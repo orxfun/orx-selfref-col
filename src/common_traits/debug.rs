@@ -1,4 +1,4 @@
-use crate::{Node, NodeData, SelfRefCol, Variant};
+use crate::{Node, NodeData, NodeIndex, SelfRefCol, Variant};
 use orx_split_vec::prelude::PinnedVec;
 use std::fmt::Debug;
 
@@ -33,6 +33,17 @@ where
     }
 }
 
+impl<'a, T: Debug, V> Debug for NodeIndex<'a, V, T>
+where
+    V: Variant<'a, T>,
+    V::Prev: Debug,
+    V::Next: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        unsafe { self.as_ref_unchecked() }.fmt(f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -40,7 +51,7 @@ mod tests {
         MemoryReclaimNever, NodeDataLazyClose, NodeRefSingle, NodeRefs, NodeRefsArray, NodeRefsVec,
     };
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     struct Var;
     impl<'a> Variant<'a, String> for Var {
         type Storage = NodeDataLazyClose<String>;
@@ -51,27 +62,53 @@ mod tests {
     }
 
     #[test]
-    fn debug_vec() {
-        let mut vec = SelfRefCol::<Var, _>::new();
+    fn debug_col() {
+        let mut col = SelfRefCol::<Var, _>::new();
 
-        vec.move_mutate([String::from("a"), String::from("b")], |x, letters| {
+        col.mutate([String::from("a"), String::from("b")], |x, letters| {
             for letter in letters {
                 let rf = x.push_get_ref(letter);
                 x.set_ends([Some(rf), None]);
             }
         });
 
-        let debug_str = format!("{:?}", vec);
+        let debug_str = format!("{:?}", col);
         assert_eq!(debug_str, "SelfRefCol { len: 2, storage_len: 2, ends: NodeRefsVec([Some(\"b\"), None]), pinned_vec: SplitVec [\n    [SelfRefNode { data: Some(\"a\"), prev: NodeRefSingle(None), next: NodeRefsVec([]) }, SelfRefNode { data: Some(\"b\"), prev: NodeRefSingle(None), next: NodeRefsVec([]) }]\n]\n }");
 
-        _ = vec.mutate_take(|x| {
+        _ = col.mutate_take((), |x, _| {
             let first = x.ends().get()[0];
             let data = first.map(|n| n.close_node_take_data(&x));
             x.set_ends([None, None]);
             data
         });
 
-        let debug_str = format!("{:?}", vec);
+        let debug_str = format!("{:?}", col);
         assert_eq!(debug_str, "SelfRefCol { len: 1, storage_len: 2, ends: NodeRefsVec([None, None]), pinned_vec: SplitVec [\n    [SelfRefNode { data: Some(\"a\"), prev: NodeRefSingle(None), next: NodeRefsVec([]) }, SelfRefNode { data: None, prev: NodeRefSingle(None), next: NodeRefsVec([]) }]\n]\n }");
+    }
+
+    #[test]
+    fn debug_node() {
+        let x = Node::<Var, _>::new_free_node('x'.to_string());
+        let y = Node::<Var, _>::new_free_node('y'.to_string());
+        let node = Node::<Var, _>::new(
+            NodeDataLazyClose::active('z'.to_string()),
+            NodeRefSingle::new(Some(&x)),
+            NodeRefsVec::new(vec![&y]),
+        );
+
+        let debug_str = format!("{:?}", node);
+        assert_eq!(debug_str, "SelfRefNode { data: Some(\"z\"), prev: NodeRefSingle(Some(\"x\")), next: NodeRefsVec([Some(\"y\")]) }");
+    }
+
+    #[test]
+    fn debug_node_index() {
+        let mut col = SelfRefCol::<Var, _>::new();
+
+        let node = col.mutate_take('a', |x, a| x.push_get_ref(a.to_string()).index(&x));
+        let debug_str = format!("{:?}", node);
+        assert_eq!(
+            debug_str,
+            "SelfRefNode { data: Some(\"a\"), prev: NodeRefSingle(None), next: NodeRefsVec([]) }"
+        );
     }
 }

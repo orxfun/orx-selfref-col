@@ -1,10 +1,9 @@
-use std::ops::Deref;
-
 use crate::{
-    variants::memory_reclaim::MemoryReclaimPolicy, Node, NodeData, NodeDataLazyClose, NodeRefs,
-    NodeRefsArray, NodeRefsVec, SelfRefCol, Variant,
+    nodes::index::NodeIndex, variants::memory_reclaim::MemoryReclaimPolicy, Node, NodeData,
+    NodeDataLazyClose, NodeRefs, NodeRefsArray, NodeRefsVec, SelfRefCol, Variant,
 };
 use orx_split_vec::{prelude::PinnedVec, SplitVec};
+use std::ops::Deref;
 
 /// Struct allowing to safely, conveniently and efficiently mutate a self referential collection.
 ///
@@ -121,6 +120,24 @@ where
     }
 
     #[inline(always)]
+    pub(crate) fn index_to_maybe_ref(
+        &self,
+        node_index: &NodeIndex<'a, V, T>,
+    ) -> Option<&'a Node<'a, V, T>> {
+        if node_index.is_valid_for_collection(self.col) {
+            Some(node_index.node_key)
+        } else {
+            None
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) fn index_to_ref(&self, node_index: &NodeIndex<'a, V, T>) -> &'a Node<'a, V, T> {
+        assert!(node_index.is_valid_for_collection(self.col));
+        node_index.node_key
+    }
+
+    #[inline(always)]
     pub(crate) fn set_next_of(&self, node: &'a Node<'a, V, T>, next: V::Next) {
         let node = std::hint::black_box(unsafe { into_mut(node) });
         node.next = next;
@@ -154,16 +171,6 @@ where
     #[inline(always)]
     fn ends_mut(&self) -> &mut V::Ends {
         unsafe { into_mut(&self.col.ends) }
-    }
-
-    // mem
-    /// Manually attempts to reclaim closed nodes.
-    pub fn reclaim_closed_nodes(&self)
-    where
-        P: 'a,
-    {
-        let vec_mut = unsafe { into_mut(self) };
-        V::MemoryReclaim::reclaim_closed_nodes(vec_mut);
     }
 
     // nodes
@@ -362,6 +369,7 @@ mod tests {
     use super::*;
     use crate::{MemoryReclaimNever, NodeRefSingle, NodeRefs, NodeRefsArray, NodeRefsVec};
 
+    #[derive(Debug, Clone, Copy)]
     struct Var;
     impl<'a> Variant<'a, char> for Var {
         type Storage = NodeDataLazyClose<char>;

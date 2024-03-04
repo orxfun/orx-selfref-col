@@ -117,6 +117,7 @@ mod tests {
     use super::*;
     use crate::{MemoryReclaimNever, NodeData, NodeDataEagerClose, NodeRefNone};
 
+    #[derive(Debug, Clone, Copy)]
     struct TestVar;
     impl<'a> Variant<'a, char> for TestVar {
         type Storage = NodeDataEagerClose<char>;

@@ -25,6 +25,7 @@ it is safe to build the self referential collection with regular `&` references.
 * without any pointer dereferencing,
 * without any access by indices, and
 * with only a couple unsafe calls.
+
 Note that the [`std::collections::linked_list::LinkedList`](https://doc.rust-lang.org/src/alloc/collections/linked_list.rs.html) implementation contains more than 60 `unsafe` code blocks.
 
 ### Convenient
@@ -96,7 +97,7 @@ The collection is defined by the following generic arguments:
     * `MemoryReclaimNever` will never claim closed nodes.
     * `MemoryReclaimOnThreshold<D>` will claim memory of closed nodes whenever the ratio of closed nodes exceeds one over `2^D`.
 
-## Example
+### Example
 
 Consider the following four structs implementing `Variant` to define four different self referential collections.
 Note that the definitions are expressive and concise leading to efficient implementations.
@@ -104,45 +105,111 @@ Note that the definitions are expressive and concise leading to efficient implem
 ```rust
 use orx_selfref_col::*;
 
+#[derive(Clone, Copy)]
 struct SinglyListVariant;
 
 impl<'a, T: 'a> Variant<'a, T> for SinglyListVariant {
     type Storage = NodeDataLazyClose<T>; // lazy close
     type MemoryReclaim = MemoryReclaimOnThreshold<2>; // closed nodes will be reclaimed when utilization drops below 75%
     type Prev = NodeRefNone; // previous nodes are not stored
-    type Next = NodeRefSingle<'a, T, Self>; // there is only one next node, if any
-    type Ends = NodeRefSingle<'a, T, Self>; // there is only one end, namely the front of the list
+    type Next = NodeRefSingle<'a, Self, T>; // there is only one next node, if any
+    type Ends = NodeRefSingle<'a, Self, T>; // there is only one end, namely the front of the list
 }
 
+#[derive(Clone, Copy)]
 struct DoublyListVariant;
 
 impl<'a, T: 'a> Variant<'a, T> for DoublyListVariant {
     type Storage = NodeDataLazyClose<T>; // lazy close
     type MemoryReclaim = MemoryReclaimOnThreshold<3>; // closed nodes will be reclaimed when utilization drops below 87.5%
-    type Prev = NodeRefSingle<'a, T, Self>; // there is only one previous node, if any
-    type Next = NodeRefSingle<'a, T, Self>; // there is only one next node, if any
-    type Ends = NodeRefsArray<'a, 2, T, Self>; // there are two ends, namely the front and back of the list
+    type Prev = NodeRefSingle<'a, Self, T>; // there is only one previous node, if any
+    type Next = NodeRefSingle<'a, Self, T>; // there is only one next node, if any
+    type Ends = NodeRefsArray<'a, 2, Self, T>; // there are two ends, namely the front and back of the list
 }
 
+#[derive(Clone, Copy)]
 struct BinaryTreeVariant;
 
 impl<'a, T: 'a> Variant<'a, T> for BinaryTreeVariant {
     type Storage = NodeDataLazyClose<T>; // lazy close
     type MemoryReclaim = MemoryReclaimOnThreshold<1>; // closed nodes will be reclaimed when utilization drops below 50%
-    type Prev = NodeRefSingle<'a, T, Self>; // there is only one previous node, namely parent node, if any
-    type Next = NodeRefsArray<'a, 2, T, Self>; // there are 0, 1 or 2 next or children nodes
-    type Ends = NodeRefSingle<'a, T, Self>; // there is only one end, namely the root of the tree
+    type Prev = NodeRefSingle<'a, Self, T>; // there is only one previous node, namely parent node, if any
+    type Next = NodeRefsArray<'a, 2, Self, T>; // there are 0, 1 or 2 next or children nodes
+    type Ends = NodeRefSingle<'a, Self, T>; // there is only one end, namely the root of the tree
 }
 
+#[derive(Clone, Copy)]
 struct DynamicTreeVariant;
 
 impl<'a, T: 'a> Variant<'a, T> for DynamicTreeVariant {
     type Storage = NodeDataLazyClose<T>; // lazy close
     type MemoryReclaim = MemoryReclaimNever; // closed nodes will be left as holes
-    type Prev = NodeRefSingle<'a, T, Self>; // there is only one previous node, namely parent node, if any
-    type Next = NodeRefsVec<'a, T, Self>; // there might be any number of next nodes, namely children nodes
-    type Ends = NodeRefSingle<'a, T, Self>; // there is only one end, namely the root of the tree
+    type Prev = NodeRefSingle<'a, Self, T>; // there is only one previous node, namely parent node, if any
+    type Next = NodeRefsVec<'a, Self, T>; // there might be any number of next nodes, namely children nodes
+    type Ends = NodeRefSingle<'a, Self, T>; // there is only one end, namely the root of the tree
 }
+```
+
+## `NodeIndex`
+
+`NodeIndex` belongs in the intersection of the two features efficient and safe.
+
+A `NodeIndex` is a struct holding a reference to an element of the collection. It provides constant time access to the element. Furthermore, a node index can be stored independently of the collection, elsewhere.
+
+In this sense `NodeIndex` to a `SelfRefCol` is analogous to `usize` to standard `Vec`.
+
+However, it puts a special emphasis on safety and correctness. The following invalid uses cannot happen with `NodeIndex` and `SelfRefCol`.
+
+### Cannot use a `NodeIndex` on a wrong `SelfRefCol`
+
+This issue can be observed with `usize` but not with `NodeIndex`.
+
+```rust ignore
+use orx_selfref_col::*;
+
+let mut col1 = SelfRefCol::<Var, _>::new();
+let a = col1.mutate_take('a', |x, a| x.push_get_ref(a).index(&x));
+
+let col2 = SelfRefCol::<Var, _>::new();
+
+assert!(!a.is_valid_for_collection(&col2)); // we cannot dereference 'a' with 'col2'!
+```
+
+### Cannot use a `NodeIndex` after the corresponding element is removed
+
+This issue can be observed with `usize` but not with `NodeIndex`.
+
+```rust ignore
+let mut col = SelfRefCol::<Var, _>::new();
+let [a, b, c, d, e, f, g] = col
+    .mutate_take(['a', 'b', 'c', 'd', 'e', 'f', 'g'], |x, values| {
+        values.map(|val| x.push_get_ref(val).index(&x))
+    });
+
+let removed_b = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // does not trigger reclaim yet
+
+assert!(!b.is_valid_for_collection(&col)); // we cannot dereference 'b' as it is removed.
+```
+
+### Cannot use a `NodeIndex` after a reorganization of the elements
+
+This is a specific to `SelfRefCol` with lazy node closure, only when `MemoryReclaimOnThreshold` policy is used. It never happens for `MemoryReclaimNever` policy.
+
+Once the node utilization drops down a determined value, the collection reorganizes its elements and reclaims the memory of the closed nodes. This invalidates all indices created beforehand, preventing any wrong access.
+
+This is analogous to removing the first element of a vector while our index is pointing to the 3rd element. After the removal, the elements of the vector are reorganized, and our index is now pointing to a wrong element. `NodeIndex` does not allow such an access.
+
+```rust ignore
+let mut col = SelfRefCol::<Var, _>::new();
+let [a, b, c] = col.mutate_take(['a', 'b', 'c'], |x, values| {
+    values.map(|val| x.push_get_ref(val).index(&x))
+});
+
+let removed_b = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // triggers reclaim, elements reorganized
+
+assert!(!a.is_valid_for_collection(&col)); // all prior indices are invalidated!
+assert!(!b.is_valid_for_collection(&col));
+assert!(!c.is_valid_for_collection(&col));
 ```
 
 ## Crates using `SelfRefCol`

@@ -12,6 +12,7 @@ pub(crate) fn reclaim_closed_nodes<'rf, 'a, T: 'a, V, P>(
 {
     if !vec_mut.col.pinned_vec.is_empty() {
         reorganize_nodes(vec_mut);
+        vec_mut.col.memory_reclaimed();
 
         let len = vec_mut.col.len;
         vec_mut.col.pinned_vec.truncate(len);
@@ -95,7 +96,7 @@ mod tests {
     use crate::{MemoryReclaimNever, NodeDataLazyClose, NodeRefSingle, NodeRefsArray, SelfRefCol};
     use test_case::test_case;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     struct Var;
     impl<'a> Variant<'a, String> for Var {
         type Storage = NodeDataLazyClose<String>;
@@ -105,23 +106,23 @@ mod tests {
         type MemoryReclaim = MemoryReclaimNever;
     }
 
-    fn new_full_vec<'a>(n: usize) -> SelfRefCol<'a, Var, String> {
-        let mut vec = SelfRefCol::<Var, _>::new();
+    fn new_full_col<'a>(n: usize) -> SelfRefCol<'a, Var, String> {
+        let mut col = SelfRefCol::<Var, _>::new();
 
         let values: Vec<_> = (0..n).map(|x| x.to_string()).collect();
-        vec.move_mutate(values, |x, values| {
+        col.mutate(values, |x, values| {
             for val in values {
                 _ = x.push_get_ref(val);
             }
         });
 
-        vec
+        col
     }
 
-    fn new_vec<'a>(n: usize, vacant_indices: Vec<usize>) -> SelfRefCol<'a, Var, String> {
-        let mut vec = new_full_vec(n);
+    fn new_col<'a>(n: usize, vacant_indices: Vec<usize>) -> SelfRefCol<'a, Var, String> {
+        let mut col = new_full_col(n);
 
-        vec.move_mutate(vacant_indices, |x, indices| {
+        col.mutate(vacant_indices, |x, indices| {
             for i in indices {
                 let node = &mut x.col.pinned_vec[i];
                 let _ = node.data.close();
@@ -129,7 +130,7 @@ mod tests {
             }
         });
 
-        vec
+        col
     }
 
     fn num_occupied(vec: &SelfRefCol<Var, String>) -> usize {
@@ -147,16 +148,16 @@ mod tests {
     #[test_case(987)]
     #[test_case(3254)]
     fn when_full(n: usize) {
-        let mut vec = new_full_vec(n);
+        let mut col = new_full_col(n);
 
-        assert_eq!(num_occupied(&vec), n);
-        assert_eq!(num_vacant(&vec), 0);
+        assert_eq!(num_occupied(&col), n);
+        assert_eq!(num_vacant(&col), 0);
 
-        let mut x = SelfRefColMut::new(&mut vec);
+        let mut x = SelfRefColMut::new(&mut col);
         reclaim_closed_nodes(&mut x);
 
-        assert_eq!(num_occupied(&vec), n);
-        assert_eq!(num_vacant(&vec), 0);
+        assert_eq!(num_occupied(&col), n);
+        assert_eq!(num_vacant(&col), 0);
     }
 
     #[test_case(1)]
@@ -167,16 +168,16 @@ mod tests {
     #[test_case(987)]
     #[test_case(3254)]
     fn when_one_vacant_at_end(n: usize) {
-        let mut vec = new_vec(n, vec![n - 1]);
+        let mut col = new_col(n, vec![n - 1]);
 
-        assert_eq!(num_occupied(&vec), n - 1);
-        assert_eq!(num_vacant(&vec), 1);
+        assert_eq!(num_occupied(&col), n - 1);
+        assert_eq!(num_vacant(&col), 1);
 
-        let mut x = SelfRefColMut::new(&mut vec);
+        let mut x = SelfRefColMut::new(&mut col);
         reclaim_closed_nodes(&mut x);
 
-        assert_eq!(num_occupied(&vec), n - 1);
-        assert_eq!(num_vacant(&vec), 0);
+        assert_eq!(num_occupied(&col), n - 1);
+        assert_eq!(num_vacant(&col), 0);
     }
 
     #[test_case(1)]
@@ -187,16 +188,16 @@ mod tests {
     #[test_case(987)]
     #[test_case(3254)]
     fn when_one_vacant_in_middle(n: usize) {
-        let mut vec = new_vec(n, vec![n / 2]);
+        let mut col = new_col(n, vec![n / 2]);
 
-        assert_eq!(num_occupied(&vec), n - 1);
-        assert_eq!(num_vacant(&vec), 1);
+        assert_eq!(num_occupied(&col), n - 1);
+        assert_eq!(num_vacant(&col), 1);
 
-        let mut x = SelfRefColMut::new(&mut vec);
+        let mut x = SelfRefColMut::new(&mut col);
         reclaim_closed_nodes(&mut x);
 
-        assert_eq!(num_occupied(&vec), n - 1);
-        assert_eq!(num_vacant(&vec), 0);
+        assert_eq!(num_occupied(&col), n - 1);
+        assert_eq!(num_vacant(&col), 0);
     }
 
     #[test_case(1)]
@@ -207,16 +208,16 @@ mod tests {
     #[test_case(987)]
     #[test_case(3254)]
     fn when_one_vacant_at_start(n: usize) {
-        let mut vec = new_vec(n, vec![0]);
+        let mut col = new_col(n, vec![0]);
 
-        assert_eq!(num_occupied(&vec), n - 1);
-        assert_eq!(num_vacant(&vec), 1);
+        assert_eq!(num_occupied(&col), n - 1);
+        assert_eq!(num_vacant(&col), 1);
 
-        let mut x = SelfRefColMut::new(&mut vec);
+        let mut x = SelfRefColMut::new(&mut col);
         reclaim_closed_nodes(&mut x);
 
-        assert_eq!(num_occupied(&vec), n - 1);
-        assert_eq!(num_vacant(&vec), 0);
+        assert_eq!(num_occupied(&col), n - 1);
+        assert_eq!(num_vacant(&col), 0);
     }
 
     #[test_case(0)]
@@ -230,15 +231,15 @@ mod tests {
     fn when_half_is_closed(n: usize) {
         let dropped_indices: Vec<_> = (0..n).filter(|x| x % 2 == 0).collect();
         let num_dropped = dropped_indices.len();
-        let mut vec = new_vec(n, dropped_indices);
+        let mut col = new_col(n, dropped_indices);
 
-        assert_eq!(num_occupied(&vec), n - num_dropped);
-        assert_eq!(num_vacant(&vec), num_dropped);
+        assert_eq!(num_occupied(&col), n - num_dropped);
+        assert_eq!(num_vacant(&col), num_dropped);
 
-        let mut x = SelfRefColMut::new(&mut vec);
+        let mut x = SelfRefColMut::new(&mut col);
         reclaim_closed_nodes(&mut x);
 
-        assert_eq!(num_occupied(&vec), n - num_dropped);
-        assert_eq!(num_vacant(&vec), 0);
+        assert_eq!(num_occupied(&col), n - num_dropped);
+        assert_eq!(num_vacant(&col), 0);
     }
 }
