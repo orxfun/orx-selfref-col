@@ -6,6 +6,7 @@ use orx_split_vec::prelude::PinnedVec;
 ///
 /// For a given self referential collection `SelfRefCol<'a, V, T, P>`, the following types implement `CanLeak`:
 /// * `T` -> values can be taken out of the collection and returned,
+/// * `&T` -> immutable references to values can be returned from the collection,
 /// * `NodeIndex<'a, V, T>` -> a safe reference to the collection can be returned and used with safety checks to access nodes in constant time.
 ///
 /// On the other hand, neither `Node<'a, V, T>` nor `&Node<'a, V, T>` implements `CanLeak`.
