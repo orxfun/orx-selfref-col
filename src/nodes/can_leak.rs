@@ -46,6 +46,35 @@ where
 {
 }
 
+// &T
+impl<'a, V, T, P> CanLeak<'a, V, T, P> for &T
+where
+    V: Variant<'a, T>,
+    P: PinnedVec<Node<'a, V, T>>,
+{
+}
+
+impl<'a, V, T, P> CanLeak<'a, V, T, P> for Option<&T>
+where
+    V: Variant<'a, T>,
+    P: PinnedVec<Node<'a, V, T>>,
+{
+}
+
+impl<'a, V, T, P> CanLeak<'a, V, T, P> for Vec<&T>
+where
+    V: Variant<'a, T>,
+    P: PinnedVec<Node<'a, V, T>>,
+{
+}
+
+impl<'a, const N: usize, V, T, P> CanLeak<'a, V, T, P> for [&T; N]
+where
+    V: Variant<'a, T>,
+    P: PinnedVec<Node<'a, V, T>>,
+{
+}
+
 // NodeIndex
 impl<'a, V, T, P> CanLeak<'a, V, T, P> for NodeIndex<'a, V, T>
 where
