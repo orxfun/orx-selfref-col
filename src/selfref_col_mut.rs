@@ -1,6 +1,6 @@
 use crate::{
     nodes::index::NodeIndex, variants::memory_reclaim::MemoryReclaimPolicy, Node, NodeData,
-    NodeDataLazyClose, NodeRefs, NodeRefsArray, NodeRefsVec, SelfRefCol, Variant,
+    NodeDataLazyClose, NodeIndexError, NodeRefs, NodeRefsArray, NodeRefsVec, SelfRefCol, Variant,
 };
 use orx_split_vec::{prelude::PinnedVec, SplitVec};
 use std::ops::Deref;
@@ -124,10 +124,20 @@ where
         &self,
         node_index: &NodeIndex<'a, V, T>,
     ) -> Option<&'a Node<'a, V, T>> {
-        if node_index.is_valid_for_collection(self.col) {
-            Some(node_index.node_key)
-        } else {
-            None
+        match node_index.is_valid_for_collection(self.col) {
+            true => Some(node_index.node_key),
+            false => None,
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) fn index_to_result_ref(
+        &self,
+        node_index: &NodeIndex<'a, V, T>,
+    ) -> Result<&'a Node<'a, V, T>, NodeIndexError> {
+        match node_index.invalidity_reason_for_collection(self.col) {
+            None => Ok(node_index.node_key),
+            Some(error) => Err(error),
         }
     }
 
