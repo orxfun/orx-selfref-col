@@ -1,5 +1,6 @@
 use crate::{
-    variants::memory_reclaim::MemoryReclaimPolicy, Node, SelfRefCol, SelfRefColMut, Variant,
+    variants::memory_reclaim::MemoryReclaimPolicy, Node, NodeIndexError, SelfRefCol, SelfRefColMut,
+    Variant,
 };
 use orx_split_vec::prelude::PinnedVec;
 
@@ -185,6 +186,8 @@ where
     /// * the node positions in the `collection` are not reorganized to reclaim memory.
     ///
     /// This conditions are sufficient to prove that the node index is valid and safe to use and will access the correct node.
+    ///
+    /// In order to get the underlying error describing why the node index is invalid, you may use [`Self::invalidity_reason_for_collection`].
     pub fn is_valid_for_collection<P>(&self, collection: &SelfRefCol<'a, V, T, P>) -> bool
     where
         P: PinnedVec<Node<'a, V, T>>,
@@ -195,9 +198,42 @@ where
             && self.node_key.is_active()
     }
 
-    /// Converts the node index to a reference to the node in the `collection`; returns None if `self.is_valid_for_collection(collection)` is false.
+    /// Returns None if the node index is valid for the given `collection`.
     ///
-    /// `is_valid_for_collection(collection)` returns true if all of of the following safety and correctness conditions hold:
+    /// Otherwise, the method returns `Some` of the particular error:
+    /// * RemovedNode => Referenced node is removed from the collection. Node index can only be used if the corresponding node still belongs to the collection.
+    /// * WrongCollection => Node index is used on a collection different than the collection it is created for.  Node indices can only be used for the collection they belong to.
+    /// * ReorganizedCollection => All nodes of the containing collection is re-organized in order to reclaim memory of closed nodes. Such a reorganization happens only if the collection uses `MemoryReclaimOnThreshold` policy and utilization level of memory drops below the threshold due to pop and remove operations. It is never observed if the list only grows or if `MemoryReclaimNever` policy is used. In this case, the references need to be recreated.
+    ///
+    /// In order to get a boolean answer to whether the node index is valid for the collection or not, you may use [`Self::is_valid_for_collection`].
+    pub fn invalidity_reason_for_collection<P>(
+        &self,
+        collection: &SelfRefCol<'a, V, T, P>,
+    ) -> Option<NodeIndexError>
+    where
+        P: PinnedVec<Node<'a, V, T>>,
+    {
+        if !self
+            .collection_key
+            .is_same_collection_as(&collection.memory_reclaim_policy)
+        {
+            Some(NodeIndexError::ReorganizedCollection)
+        } else if !collection.pinned_vec.contains_reference(self.node_key) {
+            Some(NodeIndexError::WrongCollection)
+        } else if !self.node_key.is_active() {
+            Some(NodeIndexError::RemovedNode)
+        } else {
+            None
+        }
+    }
+
+    /// Converts the node index to `Some` of the valid reference to the node in the `collection`.
+    ///
+    /// If the node index is invalid, the method returns `None`.
+    ///
+    /// Note that the validity of the node index can also be queried by [`Self::is_valid_for_collection`] method.
+    ///
+    /// `get_ref(collection)` returns `Some` if all of of the following safety and correctness conditions hold:
     /// * this index is created from the given `collection`,
     /// * the node this index is created for still belongs to the `collection`; i.e., is not removed,
     /// * the node positions in the `collection` are not reorganized to reclaim memory.
@@ -210,6 +246,27 @@ where
         P: PinnedVec<Node<'a, V, T>>,
     {
         collection.index_to_maybe_ref(self)
+    }
+
+    /// Converts the node index to a `Ok` of the valid reference to the node in the `collection`.
+    ///
+    /// If the node index is invalid, the method returns `Err` of the corresponding `NodeIndexError` depending on the reason of invalidity.
+    ///
+    /// Note that the corresponding error can also be queried by [`Self::invalidity_reason_for_collection`] method.
+    ///
+    /// `get_ref_or_error(collection)` returns `Ok` if all of of the following safety and correctness conditions hold:
+    /// * this index is created from the given `collection`,
+    /// * the node this index is created for still belongs to the `collection`; i.e., is not removed,
+    /// * the node positions in the `collection` are not reorganized to reclaim memory.
+    #[inline(always)]
+    pub fn get_ref_or_error<'rf, P>(
+        &self,
+        collection: &SelfRefColMut<'rf, 'a, V, T, P>,
+    ) -> Result<&'a Node<'a, V, T>, NodeIndexError>
+    where
+        P: PinnedVec<Node<'a, V, T>>,
+    {
+        collection.index_to_result_ref(self)
     }
 
     /// Converts the node index to a reference to the node in the `collection`.
@@ -256,13 +313,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use orx_split_vec::{Recursive, SplitVec};
-
     use crate::{
         variants::memory_reclaim::MemoryReclaimPolicy, MemoryReclaimOnThreshold, Node,
-        NodeDataLazyClose, NodeIndex, NodeRefSingle, NodeRefsArray, NodeRefsVec, SelfRefCol,
-        SelfRefColMut, Variant,
+        NodeDataLazyClose, NodeIndex, NodeIndexError, NodeRefSingle, NodeRefsArray, NodeRefsVec,
+        SelfRefCol, SelfRefColMut, Variant,
     };
+    use orx_split_vec::{Recursive, SplitVec};
 
     #[derive(Clone, Copy, Debug)]
     struct Var;
@@ -324,10 +380,13 @@ mod tests {
 
         let a = col.mutate_take('a', |x, a| x.push_get_ref(a).index(&x));
         assert!(a.is_valid_for_collection(&col));
+        assert_eq!(a.invalidity_reason_for_collection(&col), None);
 
         let b = col.mutate_take('b', |x, a| x.push_get_ref(a).index(&x));
         assert!(a.is_valid_for_collection(&col));
         assert!(b.is_valid_for_collection(&col));
+        assert_eq!(a.invalidity_reason_for_collection(&col), None);
+        assert_eq!(b.invalidity_reason_for_collection(&col), None);
     }
 
     #[test]
@@ -338,6 +397,10 @@ mod tests {
         let col2 = SelfRefCol::<Var, _>::new();
 
         assert!(!a.is_valid_for_collection(&col2));
+        assert_eq!(
+            a.invalidity_reason_for_collection(&col2),
+            Some(NodeIndexError::WrongCollection)
+        );
     }
 
     #[test]
@@ -357,8 +420,18 @@ mod tests {
         assert!(e.is_valid_for_collection(&col));
         assert!(f.is_valid_for_collection(&col));
         assert!(g.is_valid_for_collection(&col));
+        assert_eq!(a.invalidity_reason_for_collection(&col), None);
+        assert_eq!(c.invalidity_reason_for_collection(&col), None);
+        assert_eq!(d.invalidity_reason_for_collection(&col), None);
+        assert_eq!(e.invalidity_reason_for_collection(&col), None);
+        assert_eq!(f.invalidity_reason_for_collection(&col), None);
+        assert_eq!(g.invalidity_reason_for_collection(&col), None);
 
         assert!(!b.is_valid_for_collection(&col));
+        assert_eq!(
+            b.invalidity_reason_for_collection(&col),
+            Some(NodeIndexError::RemovedNode)
+        );
     }
 
     #[test]
@@ -374,6 +447,18 @@ mod tests {
         assert!(!a.is_valid_for_collection(&col));
         assert!(!b.is_valid_for_collection(&col));
         assert!(!c.is_valid_for_collection(&col));
+        assert_eq!(
+            a.invalidity_reason_for_collection(&col),
+            Some(NodeIndexError::ReorganizedCollection)
+        );
+        assert_eq!(
+            b.invalidity_reason_for_collection(&col),
+            Some(NodeIndexError::ReorganizedCollection)
+        );
+        assert_eq!(
+            c.invalidity_reason_for_collection(&col),
+            Some(NodeIndexError::ReorganizedCollection)
+        );
     }
 
     #[test]
@@ -395,7 +480,9 @@ mod tests {
         let a = col1.mutate_take('a', |x, a| x.push_get_ref(a).index(&x));
 
         let mut col2 = SelfRefCol::<Var, _>::new();
-        col2.mutate(a, |x, a| assert_node_ref_is_invalid(&x, a));
+        col2.mutate(a, |x, a| {
+            assert_node_ref_is_invalid(&x, a, NodeIndexError::WrongCollection)
+        });
     }
 
     #[test]
@@ -424,7 +511,7 @@ mod tests {
 
         col.mutate((a, b, c, d, e, f, g), |x, (a, b, c, d, e, f, g)| {
             assert_node_ref_is_valid(&x, a, 'a');
-            assert_node_ref_is_invalid(&x, b);
+            assert_node_ref_is_invalid(&x, b, NodeIndexError::RemovedNode);
             assert_node_ref_is_valid(&x, c, 'c');
             assert_node_ref_is_valid(&x, d, 'd');
             assert_node_ref_is_valid(&x, e, 'e');
@@ -460,9 +547,9 @@ mod tests {
         let _ = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // triggers reclaim
 
         col.mutate((a, b, c), |x, (a, b, c)| {
-            assert_node_ref_is_invalid(&x, a);
-            assert_node_ref_is_invalid(&x, b);
-            assert_node_ref_is_invalid(&x, c);
+            assert_node_ref_is_invalid(&x, a, NodeIndexError::ReorganizedCollection);
+            assert_node_ref_is_invalid(&x, b, NodeIndexError::ReorganizedCollection);
+            assert_node_ref_is_invalid(&x, c, NodeIndexError::ReorganizedCollection);
         });
     }
 
@@ -491,7 +578,15 @@ mod tests {
             node_index.get_ref(x).and_then(|a| a.data()),
             Some(&expected_value)
         );
+        assert_eq!(
+            node_index
+                .get_ref_or_error(x)
+                .map(|a| a.data().expect("must be some")),
+            Ok(&expected_value)
+        );
+
         assert_eq!(node_index.as_ref(x).data(), Some(&expected_value));
+
         assert_eq!(
             unsafe { node_index.as_ref_unchecked().data() },
             Some(&expected_value)
@@ -501,7 +596,10 @@ mod tests {
     fn assert_node_ref_is_invalid<'a>(
         x: &SelfRefColMut<'_, 'a, Var, char, SplitVec<Node<'a, Var, char>, Recursive>>,
         node_index: NodeIndex<'a, Var, char>,
+        error: NodeIndexError,
     ) {
         assert!(node_index.get_ref(x).is_none());
+
+        assert_eq!(node_index.get_ref_or_error(x).err(), Some(error));
     }
 }

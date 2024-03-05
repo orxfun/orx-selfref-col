@@ -248,7 +248,7 @@ mod variants;
 pub use data::{
     eager_close::NodeDataEagerClose, lazy_close::NodeDataLazyClose, node_data::NodeData,
 };
-pub use nodes::{can_leak::CanLeak, index::NodeIndex, node::Node};
+pub use nodes::{can_leak::CanLeak, index::NodeIndex, index_error::NodeIndexError, node::Node};
 pub use references::{
     array::NodeRefsArray, node_refs::NodeRefs, none::NodeRefNone, single::NodeRefSingle,
     vec::NodeRefsVec,
