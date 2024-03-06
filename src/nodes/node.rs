@@ -3,6 +3,8 @@ use crate::variants::variant::Variant;
 use crate::{NodeDataLazyClose, NodeIndex, NodeRefsArray, NodeRefsVec, SelfRefColMut};
 use orx_split_vec::prelude::PinnedVec;
 
+use super::has_collection_key::HasCollectionKey;
+
 /// A node of the self referential collection.
 ///
 /// Each node is composed of the following three pieces of data:
@@ -69,19 +71,20 @@ where
         self.data.get_mut()
     }
 
-    // mut with mut key
+    // visit with key
     /// Gets the index of the node.
     ///
     /// This index can be:
     /// * stored independent of the self referential collection as a value,
     /// * used to safely access to this node in ***O(1)*** time.
-    pub fn index<'rf, P>(&'a self, vec_mut: &SelfRefColMut<'rf, 'a, V, T, P>) -> NodeIndex<'a, V, T>
+    pub fn index<Collection>(&'a self, collection: &Collection) -> NodeIndex<'a, V, T>
     where
-        P: PinnedVec<Node<'a, V, T>>,
+        Collection: HasCollectionKey<'a, V, T>,
     {
-        NodeIndex::new(vec_mut.memory_reclaim_policy, self)
+        NodeIndex::new(collection.collection_key(), self)
     }
 
+    // mut with mut key
     /// Swaps the data stored in the node with the `new_value` and returns the old data.
     ///
     /// # Panics
@@ -243,7 +246,8 @@ where
     }
 
     // helpers - test
-    pub(crate) fn ref_eq(&self, other: &Self) -> bool {
+    /// Returns whether or not two node references are pointing to the same `Node`; i.e., checks referential equality.
+    pub fn ref_eq(&self, other: &Self) -> bool {
         let left = self as *const Self;
         let right = other as *const Self;
         left == right
@@ -402,7 +406,7 @@ mod tests {
 
         let memory_state = col.memory_reclaim_policy.0.id;
 
-        let val_a = col.mutate_take(a, |x, a| a.as_ref(&x).close_node_take_data(&x));
+        let val_a = col.mutate_take(a, |x, a| x.as_node_ref(a).close_node_take_data(&x));
         assert_eq!(val_a, 'a');
 
         assert_ne!(col.memory_reclaim_policy.0.id, memory_state);
@@ -418,7 +422,9 @@ mod tests {
 
         let memory_state = col.memory_reclaim_policy.0.id;
 
-        let val_a = col.mutate_take(a, |x, a| a.as_ref(&x).close_node_take_data_no_reclaim(&x));
+        let val_a = col.mutate_take(a, |x, a| {
+            x.as_node_ref(a).close_node_take_data_no_reclaim(&x)
+        });
         assert_eq!(val_a, 'a');
 
         assert_eq!(col.memory_reclaim_policy.0.id, memory_state);

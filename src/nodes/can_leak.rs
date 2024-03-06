@@ -1,4 +1,4 @@
-use crate::{nodes::index::NodeIndex, Node, Variant};
+use crate::{nodes::index::NodeIndex, Node, NodeIndexError, Variant};
 use orx_split_vec::prelude::PinnedVec;
 
 /// Marker trait for types which are safe to leak out of the `SelfRefCol`.
@@ -18,89 +18,53 @@ where
 {
 }
 
-// T
-impl<'a, V, T, P> CanLeak<'a, V, T, P> for T
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
+macro_rules! impl_can_leak {
+    ($x:ty) => {
+        impl<'a, V, T, P> CanLeak<'a, V, T, P> for $x
+        where
+            V: Variant<'a, T>,
+            P: PinnedVec<Node<'a, V, T>>,
+        {
+        }
+
+        impl<'a, V, T, P> CanLeak<'a, V, T, P> for Result<$x, NodeIndexError>
+        where
+            V: Variant<'a, T>,
+            P: PinnedVec<Node<'a, V, T>>,
+        {
+        }
+    };
 }
 
-impl<'a, V, T, P> CanLeak<'a, V, T, P> for Option<T>
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
+macro_rules! impl_can_leak_n {
+    ($x:ty) => {
+        impl<'a, const N: usize, V, T, P> CanLeak<'a, V, T, P> for $x
+        where
+            V: Variant<'a, T>,
+            P: PinnedVec<Node<'a, V, T>>,
+        {
+        }
+
+        impl<'a, const N: usize, V, T, P> CanLeak<'a, V, T, P> for Result<$x, NodeIndexError>
+        where
+            V: Variant<'a, T>,
+            P: PinnedVec<Node<'a, V, T>>,
+        {
+        }
+    };
 }
 
-impl<'a, V, T, P> CanLeak<'a, V, T, P> for Vec<T>
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
-}
+impl_can_leak!(T);
+impl_can_leak!(Option<T>);
+impl_can_leak!(Vec<T>);
+impl_can_leak_n!([T; N]);
 
-impl<'a, const N: usize, V, T, P> CanLeak<'a, V, T, P> for [T; N]
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
-}
+impl_can_leak!(&T);
+impl_can_leak!(Option<&T>);
+impl_can_leak!(Vec<&T>);
+impl_can_leak_n!([&T; N]);
 
-// &T
-impl<'a, V, T, P> CanLeak<'a, V, T, P> for &T
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
-}
-
-impl<'a, V, T, P> CanLeak<'a, V, T, P> for Option<&T>
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
-}
-
-impl<'a, V, T, P> CanLeak<'a, V, T, P> for Vec<&T>
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
-}
-
-impl<'a, const N: usize, V, T, P> CanLeak<'a, V, T, P> for [&T; N]
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
-}
-
-// NodeIndex
-impl<'a, V, T, P> CanLeak<'a, V, T, P> for NodeIndex<'a, V, T>
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
-}
-
-impl<'a, V, T, P> CanLeak<'a, V, T, P> for Option<NodeIndex<'a, V, T>>
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
-}
-
-impl<'a, V, T, P> CanLeak<'a, V, T, P> for Vec<NodeIndex<'a, V, T>>
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
-}
-
-impl<'a, const N: usize, V, T, P> CanLeak<'a, V, T, P> for [NodeIndex<'a, V, T>; N]
-where
-    V: Variant<'a, T>,
-    P: PinnedVec<Node<'a, V, T>>,
-{
-}
+impl_can_leak!(NodeIndex<'a, V, T>);
+impl_can_leak!(Option<NodeIndex<'a, V, T>>);
+impl_can_leak!(Vec<NodeIndex<'a, V, T>>);
+impl_can_leak_n!([NodeIndex<'a, V, T>; N]);

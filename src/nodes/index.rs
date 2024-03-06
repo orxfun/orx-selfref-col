@@ -1,6 +1,5 @@
 use crate::{
-    variants::memory_reclaim::MemoryReclaimPolicy, Node, NodeIndexError, SelfRefCol, SelfRefColMut,
-    Variant,
+    variants::memory_reclaim::MemoryReclaimPolicy, Node, NodeIndexError, SelfRefCol, Variant,
 };
 use orx_split_vec::prelude::PinnedVec;
 
@@ -227,68 +226,7 @@ where
         }
     }
 
-    /// Converts the node index to `Some` of the valid reference to the node in the `collection`.
-    ///
-    /// If the node index is invalid, the method returns `None`.
-    ///
-    /// Note that the validity of the node index can also be queried by [`Self::is_valid_for_collection`] method.
-    ///
-    /// `get_ref(collection)` returns `Some` if all of of the following safety and correctness conditions hold:
-    /// * this index is created from the given `collection`,
-    /// * the node this index is created for still belongs to the `collection`; i.e., is not removed,
-    /// * the node positions in the `collection` are not reorganized to reclaim memory.
-    #[inline(always)]
-    pub fn get_ref<'rf, P>(
-        &self,
-        collection: &SelfRefColMut<'rf, 'a, V, T, P>,
-    ) -> Option<&'a Node<'a, V, T>>
-    where
-        P: PinnedVec<Node<'a, V, T>>,
-    {
-        collection.index_to_maybe_ref(self)
-    }
-
-    /// Converts the node index to a `Ok` of the valid reference to the node in the `collection`.
-    ///
-    /// If the node index is invalid, the method returns `Err` of the corresponding `NodeIndexError` depending on the reason of invalidity.
-    ///
-    /// Note that the corresponding error can also be queried by [`Self::invalidity_reason_for_collection`] method.
-    ///
-    /// `get_ref_or_error(collection)` returns `Ok` if all of of the following safety and correctness conditions hold:
-    /// * this index is created from the given `collection`,
-    /// * the node this index is created for still belongs to the `collection`; i.e., is not removed,
-    /// * the node positions in the `collection` are not reorganized to reclaim memory.
-    #[inline(always)]
-    pub fn get_ref_or_error<'rf, P>(
-        &self,
-        collection: &SelfRefColMut<'rf, 'a, V, T, P>,
-    ) -> Result<&'a Node<'a, V, T>, NodeIndexError>
-    where
-        P: PinnedVec<Node<'a, V, T>>,
-    {
-        collection.index_to_result_ref(self)
-    }
-
-    /// Converts the node index to a reference to the node in the `collection`.
-    /// The call panics if `self.is_valid_for_collection(collection)` is false; i.e., if this node index is not valid for the given `collection`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `is_valid_for_collection(collection)` returns false.
-    ///
-    /// Note that `is_valid_for_collection` returns true if all of of the following safety and correctness conditions hold:
-    /// * this index is created from the given `collection`,
-    /// * the node this index is created for still belongs to the `collection`; i.e., is not removed,
-    /// * the node positions in the `collection` are not reorganized to reclaim memory.
-    #[inline(always)]
-    pub fn as_ref<'rf, P>(&self, collection: &SelfRefColMut<'rf, 'a, V, T, P>) -> &'a Node<'a, V, T>
-    where
-        P: PinnedVec<Node<'a, V, T>>,
-    {
-        collection.index_to_ref(self)
-    }
-
-    /// Converts the node index to a reference to the node in the `collection`.
+    /// ***O(1)*** Converts the node index to a reference to the node in the `collection`.
     ///
     /// # Safety
     ///
@@ -308,6 +246,100 @@ where
     #[inline(always)]
     pub unsafe fn as_ref_unchecked(&self) -> &'a Node<'a, V, T> {
         self.node_key
+    }
+
+    /// ***O(1)*** Returns the data of the node referenced by this node index in constant time.
+    ///
+    /// Returns None if the node index is invalid.
+    ///
+    /// Note that the validity of the node index can also be queried by [`Self::is_valid_for_collection`] method.
+    ///
+    /// `data(collection)` returns `Some` if all of of the following safety and correctness conditions hold:
+    /// * this index is created from the given `collection`,
+    /// * the node this index is created for still belongs to the `collection`; i.e., is not removed,
+    /// * the node positions in the `collection` are not reorganized to reclaim memory.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use orx_selfref_col::*;
+    ///
+    /// #[derive(Clone, Copy, Debug)]
+    /// struct Var;
+    /// impl<'a> Variant<'a, char> for Var {
+    ///     type Storage = NodeDataLazyClose<char>;
+    ///     type Prev = NodeRefSingle<'a, Self, char>;
+    ///     type Next = NodeRefsVec<'a, Self, char>;
+    ///     type Ends = NodeRefsArray<'a, 2, Self, char>;
+    ///     type MemoryReclaim = MemoryReclaimOnThreshold<2>;
+    /// }
+    ///
+    /// let mut col = SelfRefCol::<Var, _>::new();
+    ///
+    /// let a = col.mutate_take('a', |x, a| x.push_get_ref(a).index(&x));
+    ///
+    /// assert_eq!(a.data(&col), Some(&'a'));
+    ///
+    /// let other_col = SelfRefCol::<Var, _>::new();
+    /// assert_eq!(a.data(&other_col), None);
+    /// ```
+    pub fn data<P>(&self, collection: &SelfRefCol<'a, V, T, P>) -> Option<&'a T>
+    where
+        P: PinnedVec<Node<'a, V, T>>,
+    {
+        match self.is_valid_for_collection(collection) {
+            true => self.node_key.data(),
+            false => None,
+        }
+    }
+
+    /// ***O(1)*** Returns the data of the node referenced by this node index in constant time.
+    ///
+    /// If the node index is invalid, the method returns `Err` of the corresponding `NodeIndexError` depending on the reason of invalidity.
+    ///
+    /// Note that the corresponding error can also be queried by [`Self::invalidity_reason_for_collection`] method.
+    ///
+    /// `data(collection)` returns `Some` if all of of the following safety and correctness conditions hold:
+    /// * this index is created from the given `collection`,
+    /// * the node this index is created for still belongs to the `collection`; i.e., is not removed,
+    /// * the node positions in the `collection` are not reorganized to reclaim memory.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use orx_selfref_col::*;
+    ///
+    /// #[derive(Clone, Copy, Debug)]
+    /// struct Var;
+    /// impl<'a> Variant<'a, char> for Var {
+    ///     type Storage = NodeDataLazyClose<char>;
+    ///     type Prev = NodeRefSingle<'a, Self, char>;
+    ///     type Next = NodeRefsVec<'a, Self, char>;
+    ///     type Ends = NodeRefsArray<'a, 2, Self, char>;
+    ///     type MemoryReclaim = MemoryReclaimOnThreshold<2>;
+    /// }
+    ///
+    /// let mut col = SelfRefCol::<Var, _>::new();
+    ///
+    /// let a = col.mutate_take('a', |x, a| x.push_get_ref(a).index(&x));
+    ///
+    /// assert_eq!(a.data_or_error(&col), Ok(&'a'));
+    ///
+    /// let other_col = SelfRefCol::<Var, _>::new();
+    /// assert_eq!(a.data_or_error(&other_col).err(), Some(NodeIndexError::WrongCollection));
+    /// ```
+    #[allow(clippy::missing_panics_doc, clippy::unwrap_in_result)]
+    pub fn data_or_error<P>(
+        &self,
+        collection: &SelfRefCol<'a, V, T, P>,
+    ) -> Result<&T, NodeIndexError>
+    where
+        P: PinnedVec<Node<'a, V, T>>,
+    {
+        match self.invalidity_reason_for_collection(collection) {
+            None => Ok(self.node_key.data().expect("is some when is-valid")),
+            Some(error) => Err(error),
+        }
     }
 }
 
@@ -381,12 +413,17 @@ mod tests {
         let a = col.mutate_take('a', |x, a| x.push_get_ref(a).index(&x));
         assert!(a.is_valid_for_collection(&col));
         assert_eq!(a.invalidity_reason_for_collection(&col), None);
+        assert_eq!(a.data(&col), Some(&'a'));
 
         let b = col.mutate_take('b', |x, a| x.push_get_ref(a).index(&x));
         assert!(a.is_valid_for_collection(&col));
         assert!(b.is_valid_for_collection(&col));
         assert_eq!(a.invalidity_reason_for_collection(&col), None);
         assert_eq!(b.invalidity_reason_for_collection(&col), None);
+        assert_eq!(a.data(&col), Some(&'a'));
+        assert_eq!(b.data(&col), Some(&'b'));
+        assert_eq!(a.data_or_error(&col), Ok(&'a'));
+        assert_eq!(b.data_or_error(&col), Ok(&'b'));
     }
 
     #[test]
@@ -401,6 +438,11 @@ mod tests {
             a.invalidity_reason_for_collection(&col2),
             Some(NodeIndexError::WrongCollection)
         );
+        assert_eq!(a.data(&col2), None);
+        assert_eq!(
+            a.data_or_error(&col2).err(),
+            Some(NodeIndexError::WrongCollection)
+        );
     }
 
     #[test]
@@ -411,7 +453,7 @@ mod tests {
                 values.map(|val| x.push_get_ref(val).index(&x))
             });
 
-        let removed_b = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // does not trigger reclaim yet
+        let removed_b = col.mutate_take(b, |x, b| x.as_node_ref(b).close_node_take_data(&x)); // does not trigger reclaim yet
         assert_eq!(removed_b, 'b');
 
         assert!(a.is_valid_for_collection(&col));
@@ -426,10 +468,27 @@ mod tests {
         assert_eq!(e.invalidity_reason_for_collection(&col), None);
         assert_eq!(f.invalidity_reason_for_collection(&col), None);
         assert_eq!(g.invalidity_reason_for_collection(&col), None);
+        assert_eq!(a.data(&col), Some(&'a'));
+        assert_eq!(c.data(&col), Some(&'c'));
+        assert_eq!(d.data(&col), Some(&'d'));
+        assert_eq!(e.data(&col), Some(&'e'));
+        assert_eq!(f.data(&col), Some(&'f'));
+        assert_eq!(g.data(&col), Some(&'g'));
+        assert_eq!(a.data_or_error(&col), Ok(&'a'));
+        assert_eq!(c.data_or_error(&col), Ok(&'c'));
+        assert_eq!(d.data_or_error(&col), Ok(&'d'));
+        assert_eq!(e.data_or_error(&col), Ok(&'e'));
+        assert_eq!(f.data_or_error(&col), Ok(&'f'));
+        assert_eq!(g.data_or_error(&col), Ok(&'g'));
 
         assert!(!b.is_valid_for_collection(&col));
         assert_eq!(
             b.invalidity_reason_for_collection(&col),
+            Some(NodeIndexError::RemovedNode)
+        );
+        assert_eq!(b.data(&col), None);
+        assert_eq!(
+            b.data_or_error(&col).err(),
             Some(NodeIndexError::RemovedNode)
         );
     }
@@ -441,7 +500,7 @@ mod tests {
             values.map(|val| x.push_get_ref(val).index(&x))
         });
 
-        let removed_b = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // triggers reclaim
+        let removed_b = col.mutate_take(b, |x, b| x.as_node_ref(b).close_node_take_data(&x)); // triggers reclaim
         assert_eq!(removed_b, 'b');
 
         assert!(!a.is_valid_for_collection(&col));
@@ -457,6 +516,21 @@ mod tests {
         );
         assert_eq!(
             c.invalidity_reason_for_collection(&col),
+            Some(NodeIndexError::ReorganizedCollection)
+        );
+        assert_eq!(a.data(&col), None);
+        assert_eq!(b.data(&col), None);
+        assert_eq!(c.data(&col), None);
+        assert_eq!(
+            a.data_or_error(&col).err(),
+            Some(NodeIndexError::ReorganizedCollection)
+        );
+        assert_eq!(
+            b.data_or_error(&col).err(),
+            Some(NodeIndexError::ReorganizedCollection)
+        );
+        assert_eq!(
+            c.data_or_error(&col).err(),
             Some(NodeIndexError::ReorganizedCollection)
         );
     }
@@ -494,7 +568,7 @@ mod tests {
         let mut col2 = SelfRefCol::<Var, _>::new();
 
         col2.mutate(a, |x, a| {
-            a.as_ref(&x);
+            x.as_node_ref(a);
         });
     }
 
@@ -506,7 +580,7 @@ mod tests {
                 values.map(|val| x.push_get_ref(val).index(&x))
             });
 
-        let removed_b = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // does not trigger reclaim yet
+        let removed_b = col.mutate_take(b, |x, b| x.as_node_ref(b).close_node_take_data(&x)); // does not trigger reclaim yet
         assert_eq!(removed_b, 'b');
 
         col.mutate((a, b, c, d, e, f, g), |x, (a, b, c, d, e, f, g)| {
@@ -529,11 +603,11 @@ mod tests {
                 values.map(|val| x.push_get_ref(val).index(&x))
             });
 
-        let removed_b = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // does not trigger reclaim yet
+        let removed_b = col.mutate_take(b, |x, b| x.as_node_ref(b).close_node_take_data(&x)); // does not trigger reclaim yet
         assert_eq!(removed_b, 'b');
 
         col.mutate(b, |x, b| {
-            b.as_ref(&x);
+            x.as_node_ref(b);
         });
     }
 
@@ -544,7 +618,7 @@ mod tests {
             values.map(|val| x.push_get_ref(val).index(&x))
         });
 
-        let _ = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // triggers reclaim
+        let _ = col.mutate_take(b, |x, b| x.as_node_ref(b).close_node_take_data(&x)); // triggers reclaim
 
         col.mutate((a, b, c), |x, (a, b, c)| {
             assert_node_ref_is_invalid(&x, a, NodeIndexError::ReorganizedCollection);
@@ -561,10 +635,10 @@ mod tests {
             values.map(|val| x.push_get_ref(val).index(&x))
         });
 
-        let _ = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // triggers reclaim
+        let _ = col.mutate_take(b, |x, b| x.as_node_ref(b).close_node_take_data(&x)); // triggers reclaim
 
         col.mutate(a, |x, a| {
-            a.as_ref(&x);
+            x.as_node_ref(a);
         });
     }
 
@@ -575,17 +649,16 @@ mod tests {
         expected_value: char,
     ) {
         assert_eq!(
-            node_index.get_ref(x).and_then(|a| a.data()),
+            x.get_node_ref(node_index).and_then(|a| a.data()),
             Some(&expected_value)
         );
         assert_eq!(
-            node_index
-                .get_ref_or_error(x)
+            x.get_node_ref_or_error(node_index)
                 .map(|a| a.data().expect("must be some")),
             Ok(&expected_value)
         );
 
-        assert_eq!(node_index.as_ref(x).data(), Some(&expected_value));
+        assert_eq!(x.as_node_ref(node_index).data(), Some(&expected_value));
 
         assert_eq!(
             unsafe { node_index.as_ref_unchecked().data() },
@@ -598,8 +671,8 @@ mod tests {
         node_index: NodeIndex<'a, Var, char>,
         error: NodeIndexError,
     ) {
-        assert!(node_index.get_ref(x).is_none());
+        assert!(x.get_node_ref(node_index).is_none());
 
-        assert_eq!(node_index.get_ref_or_error(x).err(), Some(error));
+        assert_eq!(x.get_node_ref_or_error(node_index).err(), Some(error));
     }
 }

@@ -5,7 +5,7 @@ use crate::{
         memory_reclaim::{MemoryReclaimAlways, MemoryReclaimPolicy},
         variant::Variant,
     },
-    MemoryReclaimOnThreshold,
+    MemoryReclaimOnThreshold, SelfRefColVisit,
 };
 use orx_split_vec::{prelude::PinnedVec, Recursive, SplitVec};
 use std::marker::PhantomData;
@@ -194,6 +194,64 @@ where
         MemoryReclaimAlways::reclaim_closed_nodes(&mut vecmut);
     }
 
+    // visit
+    /// Method allowing to visit nodes of the collection and return values from the collection.
+    ///
+    /// This method can only return types which implement `CanLeak`.
+    /// Note that only `T` and `NodeIndex`, and types wrapping these two types, such as `Option` or `Vec`, implement `CanLeak`.
+    /// This ensures the safety guarantees ara maintained.
+    ///
+    /// This method takes two arguments:
+    /// * **`value_to_move`** is, as the name suggests, a value to be moved to the visit lambda.
+    /// * `visit_take_lambda` is the expression defining the search inside the collection.
+    ///   * The lambda takes two parameters:
+    ///     * the first parameter is the `SelfRefColVisit` type which is the key for constant-time node access methods **without mutation**;
+    ///     * the second parameter is the value moved into the lambda, which is exactly the `value_to_move` parameter of this method.
+    ///   * And it returns a type implementing `CanLeak` to make sure that safety guarantees of `SelfRefCol` are maintained.
+    ///   * Note that the lambda is of a function pointer type; i.e., `fn`, rather than a function trait such as `FnOnce`.
+    /// This is intentional and critical in terms of the safety guarantees.
+    /// Its purpose is to prevent capturing data from the environment, as well as, prevent leaking vector references to outside of the lambda.
+    ///
+    /// # Examples
+    ///
+    /// ## Example - Take out Value
+    ///
+    /// The following code block demonstrates the use of the `visit_take` function to define the index_of method of a singly, or doubly, linked list.
+    /// Note that `self.col` below is a `SelfRefVisit`.
+    /// We can easily access the nodes and traverse through the references among them inside the lambda.
+    /// In this example, we move inside a value to search.
+    /// Once we reach a node with the given value, we return the node index which implements `CanLeak`.
+    ///
+    /// ```rust ignore
+    /// pub fn index_of(&self, value: &T) -> Option<NodeIndex<'a, V, T>>
+    /// where
+    ///     T: PartialEq,
+    /// {
+    ///     self.col.visit_take(value, |x, value| {
+    ///         let mut current = x.ends().front();
+    ///         while let Some(node) = current {
+    ///             match node.data() {
+    ///                 Some(data) if value == data => return Some(node.index(&x)),
+    ///                 _ => current = *node.next().get(),
+    ///             }
+    ///         }
+    ///         None
+    ///     })
+    /// }
+    /// ```
+    pub fn visit_take<Move, Take>(
+        &self,
+        value_to_move: Move,
+        visit_take_lambda: fn(SelfRefColVisit<'_, 'a, V, T, P>, Move) -> Take,
+    ) -> Take
+    where
+        Take: CanLeak<'a, V, T, P>,
+    {
+        let vecmut = SelfRefColVisit::new(self);
+        visit_take_lambda(vecmut, value_to_move)
+    }
+
+    // mutate
     /// Method allowing to mutate the collection.
     ///
     /// This method takes the following arguments:
@@ -246,7 +304,7 @@ where
         move_mutate_lambda(vecmut, value_to_move);
     }
 
-    /// Method allowing to mutate the collection and and return values from the collection.
+    /// Method allowing to mutate the collection and return values from the collection.
     ///
     /// This method can only return types which implement `CanLeak`.
     /// Note that only `T` and `NodeIndex`, and types wrapping these two types, such as `Option` or `Vec`, implement `CanLeak`.
@@ -323,11 +381,14 @@ where
     ///     });
     /// }
     /// ```
-    pub fn mutate_take<Move, Take: CanLeak<'a, V, T, P>>(
+    pub fn mutate_take<Move, Take>(
         &mut self,
         value_to_move: Move,
         move_mutate_take_lambda: fn(SelfRefColMut<'_, 'a, V, T, P>, Move) -> Take,
-    ) -> Take {
+    ) -> Take
+    where
+        Take: CanLeak<'a, V, T, P>,
+    {
         let vecmut = SelfRefColMut::new(self);
         move_mutate_take_lambda(vecmut, value_to_move)
     }
@@ -739,13 +800,13 @@ mod tests {
 
         assert!(approx_eq!(f32, col.node_utilization(), 6.0 / 6.0, ulps = 2));
 
-        col.mutate_take(a, |x, a| a.as_ref(&x).close_node_take_data(&x));
+        col.mutate_take(a, |x, a| x.as_node_ref(a).close_node_take_data(&x));
         assert!(approx_eq!(f32, col.node_utilization(), 5.0 / 6.0, ulps = 2));
 
-        col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x));
+        col.mutate_take(b, |x, b| x.as_node_ref(b).close_node_take_data(&x));
         assert!(approx_eq!(f32, col.node_utilization(), 4.0 / 6.0, ulps = 2));
 
-        col.mutate_take(c, |x, c| c.as_ref(&x).close_node_take_data(&x));
+        col.mutate_take(c, |x, c| x.as_node_ref(c).close_node_take_data(&x));
         assert!(approx_eq!(f32, col.node_utilization(), 3.0 / 6.0, ulps = 2));
 
         col.reclaim_closed_nodes();
