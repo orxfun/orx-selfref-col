@@ -2,7 +2,7 @@ use crate::{
     nodes::index::NodeIndex, variants::memory_reclaim::MemoryReclaimPolicy, Node, NodeData,
     NodeDataLazyClose, NodeIndexError, NodeRefs, NodeRefsArray, NodeRefsVec, SelfRefCol, Variant,
 };
-use orx_split_vec::{prelude::PinnedVec, SplitVec};
+use orx_split_vec::prelude::PinnedVec;
 use std::ops::Deref;
 
 /// Struct allowing to safely, conveniently and efficiently mutate a self referential collection.
@@ -13,51 +13,9 @@ use std::ops::Deref;
 /// Therefore, it allows to mutate the vector with immutable references, as in internal mutability of a refcell.
 ///
 /// This struct cannot be created externally.
-/// It is only constructed by `SelfRefCol`s `move_mutate` and `mutate_take` methods.
-///
-/// ## `move_mutate`
-///
-/// Move-mutate accepts a lambda having an access to `SelfRefColMut` to mutate the vector and an additional value which is moved into the lambda.
-/// The method does not return a value.
-///
-/// Note that the lambda is a function pointer rather than a closure.
-/// Therefore,
-/// * a reference external to the vector cannot be leaked in;
-/// * a reference to an element of the vector cannot leak out.
-///
-/// Thus the compactness of the self referential collection is preserved.
-///
-/// ## `mutate_take`
-///
-/// Mutate-take takes a single parameter, a lambda having an access to `SelfRefColMut` to mutate the vector.
-/// The method returns a value of element type `T`.
-/// In other words, it takes out a value from the vector and returns it.
-///
-/// Note that the lambda is a function pointer rather than a closure.
-/// Therefore,
-/// * a reference external to the vector cannot be leaked in;
-/// * a reference to an element of the vector cannot leak out, note that the return type is strictly an owned value of the element type.
-///
-/// Thus the compactness of the self referential collection is preserved.
-///
-/// Mutations of the references of the self referential collection are conveniently handled by methods of `SelfRefNode`.
-/// However, all these methods require a reference to a `SelfRefColMut`.
-/// In other words, `SelfRefColMut` is the key to enable these mutations.
-/// The safety is then guaranteed by the following:
-/// * `SelfRefColMut` is never explicitly constructed by the caller.
-/// The caller only provides definition of the mutations in the form of a lambda, which is specifically a `fn` as explained above.
-/// * `SelfRefCol` methods `move_mutate` and `mutate_take` require a mutable reference to the vector;
-/// and hence, there might be only at most one `SelfRefColMut` instance at any given time.
-/// * Inside the lambda, however, multiple mutations are easily enabled and allowed with the guarantees of the encapsulation.
-///
-/// ## `move_mutate_take`
-///
-/// As the name suggests, this method is the combination of the prior two:
-/// * we move a value to the non-capturing lambda,
-/// * we mutate references and the collection encapsulated inside the lambda using the key,
-/// * we take one element out.
-///
-/// This method is most suitable for operations involving swaps.
+/// It is only constructed by `SelfRefCol`s methods such as `mutate` and `mutate_take` methods.
+/// You may find corresponding safety guarantees in the documentation of these methods, which in brief, relies on careful encapsulation of mutation
+/// preventing any reference to leak into the collection or any node reference to leak out.
 ///
 /// # Convenience
 ///
@@ -101,7 +59,7 @@ use std::ops::Deref;
 ///     self.len += 1;
 /// }
 /// ```
-pub struct SelfRefColMut<'rf, 'a, V, T, P = SplitVec<Node<'a, V, T>>>
+pub struct SelfRefColMut<'rf, 'a, V, T, P>
 where
     V: Variant<'a, T>,
     P: PinnedVec<Node<'a, V, T>>,
@@ -117,34 +75,6 @@ where
 {
     pub(crate) fn new(vec: &'rf mut SelfRefCol<'a, V, T, P>) -> Self {
         Self { col: vec }
-    }
-
-    #[inline(always)]
-    pub(crate) fn index_to_maybe_ref(
-        &self,
-        node_index: &NodeIndex<'a, V, T>,
-    ) -> Option<&'a Node<'a, V, T>> {
-        match node_index.is_valid_for_collection(self.col) {
-            true => Some(node_index.node_key),
-            false => None,
-        }
-    }
-
-    #[inline(always)]
-    pub(crate) fn index_to_result_ref(
-        &self,
-        node_index: &NodeIndex<'a, V, T>,
-    ) -> Result<&'a Node<'a, V, T>, NodeIndexError> {
-        match node_index.invalidity_reason_for_collection(self.col) {
-            None => Ok(node_index.node_key),
-            Some(error) => Err(error),
-        }
-    }
-
-    #[inline(always)]
-    pub(crate) fn index_to_ref(&self, node_index: &NodeIndex<'a, V, T>) -> &'a Node<'a, V, T> {
-        assert!(node_index.is_valid_for_collection(self.col));
-        node_index.node_key
     }
 
     #[inline(always)]
@@ -181,6 +111,66 @@ where
     #[inline(always)]
     fn ends_mut(&self) -> &mut V::Ends {
         unsafe { into_mut(&self.col.ends) }
+    }
+
+    // index
+    /// ***O(1)*** Converts the `node_index` to `Some` of the valid reference to the node in this collection.
+    ///
+    /// If the node index is invalid, the method returns `None`.
+    ///
+    /// Note that the validity of the node index can also be queried by `node_index::is_valid_for_collection` method.
+    ///
+    /// `get_node_ref(collection)` returns `Some` if all of of the following safety and correctness conditions hold:
+    /// * this index is created from the given `collection`,
+    /// * the node this index is created for still belongs to the `collection`; i.e., is not removed,
+    /// * the node positions in the `collection` are not reorganized to reclaim memory.
+    #[inline(always)]
+    pub fn get_node_ref(&self, node_index: NodeIndex<'a, V, T>) -> Option<&'a Node<'a, V, T>> {
+        match node_index.is_valid_for_collection(self.col) {
+            true => Some(node_index.node_key),
+            false => None,
+        }
+    }
+
+    /// ***O(1)*** Converts the `node_index` to a `Ok` of the valid reference to the node in this collection.
+    ///
+    /// If the node index is invalid, the method returns `Err` of the corresponding `NodeIndexError` depending on the reason of invalidity.
+    ///
+    /// Note that the corresponding error can also be queried by `node_index::invalidity_reason_for_collection` method.
+    ///
+    /// `get_node_ref_or_error(collection)` returns `Ok` if all of of the following safety and correctness conditions hold:
+    /// * this index is created from the given `collection`,
+    /// * the node this index is created for still belongs to the `collection`; i.e., is not removed,
+    /// * the node positions in the `collection` are not reorganized to reclaim memory.
+    #[inline(always)]
+    pub fn get_node_ref_or_error(
+        &self,
+        node_index: NodeIndex<'a, V, T>,
+    ) -> Result<&'a Node<'a, V, T>, NodeIndexError>
+    where
+        P: PinnedVec<Node<'a, V, T>>,
+    {
+        match node_index.invalidity_reason_for_collection(self.col) {
+            None => Ok(node_index.node_key),
+            Some(error) => Err(error),
+        }
+    }
+
+    /// ***O(1)*** Converts the `node_index` to a reference to the node in this collection.
+    /// The call panics if `node_index.is_valid_for_collection(collection)` is false; i.e., if this node index is not valid for this collection.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the node index is invalid; i.e., if `node_index.is_valid_for_collection` returns false.
+    ///
+    /// Note that `is_valid_for_collection` returns true if all of of the following safety and correctness conditions hold:
+    /// * this index is created from the given `collection`,
+    /// * the node this index is created for still belongs to the `collection`; i.e., is not removed,
+    /// * the node positions in the `collection` are not reorganized to reclaim memory.
+    #[inline(always)]
+    pub fn as_node_ref(&self, node_index: NodeIndex<'a, V, T>) -> &'a Node<'a, V, T> {
+        assert!(node_index.is_valid_for_collection(self.col));
+        node_index.node_key
     }
 
     // nodes

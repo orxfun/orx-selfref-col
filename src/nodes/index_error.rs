@@ -29,7 +29,7 @@ pub enum NodeIndexError {
     ///         values.map(|val| x.push_get_ref(val).index(&x))
     ///     });
     ///
-    /// let removed_b = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x)); // does not trigger reclaim yet
+    /// let removed_b = col.mutate_take(b, |x, b| x.as_node_ref(b).close_node_take_data(&x)); // does not trigger reclaim yet
     /// assert_eq!(removed_b, 'b');
     ///
     /// assert_eq!(a.invalidity_reason_for_collection(&col), None);
@@ -87,7 +87,7 @@ pub enum NodeIndexError {
     /// });
     ///
     /// // triggers memory reclaim, invalidating all prior node indices
-    /// let removed_b = col.mutate_take(b, |x, b| b.as_ref(&x).close_node_take_data(&x));
+    /// let removed_b = col.mutate_take(b, |x, b| x.as_node_ref(b).close_node_take_data(&x));
     /// assert_eq!(removed_b, 'b');
     ///
     /// assert_eq!(a.invalidity_reason_for_collection(&col), Some(NodeIndexError::ReorganizedCollection));

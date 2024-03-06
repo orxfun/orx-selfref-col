@@ -4,6 +4,14 @@ use crate::{
 };
 use orx_split_vec::prelude::PinnedVec;
 
+/// Policy which determines how the memory of closed nodes will be reclaimed and made useful.
+///
+/// Two main implementors are:
+/// * [`MemoryReclaimOnThreshold<N>`] reclaims unused holes whenever the utilization of the memory falls below a constant threshold determined by `N`.
+/// This could be considered as the flexible and general approach.
+/// * [`MemoryReclaimNever`] which never reclaims the holes due to popped or removed; i.e., closed, nodes.
+/// This approach has the advantage that a `NodeIndex` is never invalidated due to memory reorganization.
+/// Therefore, it fits very well to situations where removals from the list is not substantial.
 pub trait MemoryReclaimPolicy<'a, V, T, Prev, Next>: Default + Clone + Copy
 where
     V: Variant<'a, T, Prev = Prev, Next = Next>,
