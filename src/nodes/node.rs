@@ -1,4 +1,5 @@
 use crate::data::node_data::NodeData;
+use crate::variants::memory_reclaim::Reclaim;
 use crate::variants::variant::Variant;
 use crate::{NodeDataLazyClose, NodeIndex, NodeRefsArray, NodeRefsVec, SelfRefColMut};
 use orx_split_vec::prelude::PinnedVec;
@@ -169,6 +170,7 @@ where
     where
         V: Variant<'a, T, Storage = NodeDataLazyClose<T>>,
         P: PinnedVec<Node<'a, V, T>> + 'a,
+        SelfRefColMut<'rf, 'a, V, T, P>: Reclaim<V::Prev, V::Next>,
     {
         vec_mut.close_node_take_data(self)
     }
@@ -187,6 +189,7 @@ where
     where
         V: Variant<'a, T, Storage = NodeDataLazyClose<T>>,
         P: PinnedVec<Node<'a, V, T>> + 'a,
+        SelfRefColMut<'rf, 'a, V, T, P>: Reclaim<V::Prev, V::Next>,
     {
         vec_mut.close_node_take_data_no_reclaim(self)
     }

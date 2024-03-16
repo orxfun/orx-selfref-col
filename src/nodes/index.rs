@@ -151,7 +151,7 @@ where
 {
     fn eq(&self, other: &Self) -> bool {
         self.collection_key
-            .is_same_collection_as(&other.collection_key)
+            .at_the_same_state_as(&other.collection_key)
             && self.node_key.ref_eq(other.node_key)
     }
 }
@@ -192,7 +192,7 @@ where
         P: PinnedVec<Node<'a, V, T>>,
     {
         self.collection_key
-            .is_same_collection_as(&collection.memory_reclaim_policy)
+            .at_the_same_state_as(&collection.memory_reclaim_policy)
             && collection.pinned_vec.contains_reference(self.node_key)
             && self.node_key.is_active()
     }
@@ -214,7 +214,7 @@ where
     {
         if !self
             .collection_key
-            .is_same_collection_as(&collection.memory_reclaim_policy)
+            .at_the_same_state_as(&collection.memory_reclaim_policy)
         {
             Some(NodeIndexError::ReorganizedCollection)
         } else if !collection.pinned_vec.contains_reference(self.node_key) {
@@ -332,7 +332,7 @@ where
     pub fn data_or_error<P>(
         &self,
         collection: &SelfRefCol<'a, V, T, P>,
-    ) -> Result<&T, NodeIndexError>
+    ) -> Result<&'a T, NodeIndexError>
     where
         P: PinnedVec<Node<'a, V, T>>,
     {
@@ -374,25 +374,19 @@ mod tests {
         assert!(index.node_key.ref_eq(&node));
         assert!(clone.node_key.ref_eq(&node));
 
-        assert!(<MemoryReclaimOnThreshold<2> as MemoryReclaimPolicy<
-            '_,
-            Var,
-            _,
-            _,
-            _,
-        >>::is_same_collection_as(
-            &index.collection_key, &reclaim,
-        ));
+        assert!(
+            <MemoryReclaimOnThreshold<2> as MemoryReclaimPolicy>::at_the_same_state_as(
+                &index.collection_key,
+                &reclaim,
+            )
+        );
 
-        assert!(<MemoryReclaimOnThreshold<2> as MemoryReclaimPolicy<
-            '_,
-            Var,
-            _,
-            _,
-            _,
-        >>::is_same_collection_as(
-            &clone.collection_key, &reclaim,
-        ));
+        assert!(
+            <MemoryReclaimOnThreshold<2> as MemoryReclaimPolicy>::at_the_same_state_as(
+                &clone.collection_key,
+                &reclaim,
+            )
+        );
     }
 
     #[test]
@@ -652,6 +646,7 @@ mod tests {
             x.get_node_ref(node_index).and_then(|a| a.data()),
             Some(&expected_value)
         );
+
         assert_eq!(
             x.get_node_ref_or_error(node_index)
                 .map(|a| a.data().expect("must be some")),

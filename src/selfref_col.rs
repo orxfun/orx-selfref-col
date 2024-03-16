@@ -2,10 +2,10 @@ use crate::{
     nodes::{can_leak::CanLeak, node::Node},
     selfref_col_mut::{into_mut, SelfRefColMut},
     variants::{
-        memory_reclaim::{MemoryReclaimAlways, MemoryReclaimPolicy},
+        memory_reclaim::{MemoryReclaimAlways, MemoryReclaimPolicy, Reclaim},
         variant::Variant,
     },
-    MemoryReclaimOnThreshold, SelfRefColVisit,
+    NodeDataLazyClose, SelfRefColVisit,
 };
 use orx_split_vec::{prelude::PinnedVec, Recursive, SplitVec};
 use std::marker::PhantomData;
@@ -187,8 +187,9 @@ where
     pub fn reclaim_closed_nodes(&mut self)
     where
         P: 'a,
-        MemoryReclaimOnThreshold<32>:
-            MemoryReclaimPolicy<'a, V, T, <V as Variant<'a, T>>::Prev, <V as Variant<'a, T>>::Next>,
+        T: 'a,
+        V: Variant<'a, T, Storage = NodeDataLazyClose<T>>,
+        for<'rf> SelfRefColMut<'rf, 'a, V, T, P>: Reclaim<V::Prev, V::Next>,
     {
         let mut vecmut = SelfRefColMut::new(self);
         MemoryReclaimAlways::reclaim_closed_nodes(&mut vecmut);

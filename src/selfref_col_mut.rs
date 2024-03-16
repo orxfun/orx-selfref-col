@@ -1,6 +1,8 @@
 use crate::{
-    nodes::index::NodeIndex, variants::memory_reclaim::MemoryReclaimPolicy, Node, NodeData,
-    NodeDataLazyClose, NodeIndexError, NodeRefs, NodeRefsArray, NodeRefsVec, SelfRefCol, Variant,
+    nodes::index::NodeIndex,
+    variants::memory_reclaim::{MemoryReclaimPolicy, Reclaim},
+    Node, NodeData, NodeDataLazyClose, NodeIndexError, NodeRefs, NodeRefsArray, NodeRefsVec,
+    SelfRefCol, Variant,
 };
 use orx_split_vec::prelude::PinnedVec;
 use std::ops::Deref;
@@ -314,6 +316,7 @@ impl<'rf, 'a, V, T, P> SelfRefColMut<'rf, 'a, V, T, P>
 where
     V: Variant<'a, T, Storage = NodeDataLazyClose<T>>,
     P: PinnedVec<Node<'a, V, T>> + 'a,
+    SelfRefColMut<'rf, 'a, V, T, P>: Reclaim<V::Prev, V::Next>,
 {
     pub(crate) fn close_node_take_data_no_reclaim(&self, node: &'a Node<'a, V, T>) -> T {
         debug_assert!(node.data.is_active());
