@@ -257,5 +257,7 @@ pub use references::{
 pub use selfref_col::SelfRefCol;
 pub use selfref_col_mut::SelfRefColMut;
 pub use selfref_col_visit::SelfRefColVisit;
-pub use variants::memory_reclaim::{MemoryReclaimNever, MemoryReclaimOnThreshold};
+pub use variants::memory_reclaim::{
+    MemoryReclaimNever, MemoryReclaimOnThreshold, MemoryReclaimPolicy, Reclaim,
+};
 pub use variants::variant::Variant;

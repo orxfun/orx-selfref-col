@@ -37,7 +37,7 @@ where
     type Ends: NodeRefs<'a, Self, T>;
 
     /// The way how memory of closed nodes will be reclaimed:
-    /// * `MemoryReclaimNever` will never claim closed nodes.
+    /// * `MemoryReclaimNever` will never automatically claim closed nodes.
     /// * `MemoryReclaimOnThreshold<D>` will claim memory of closed nodes whenever the ratio of closed nodes exceeds one over `2^D`.
-    type MemoryReclaim: MemoryReclaimPolicy<'a, Self, T, Self::Prev, Self::Next>;
+    type MemoryReclaim: MemoryReclaimPolicy;
 }

@@ -1,6 +1,6 @@
 use crate::{
     memory_reclaim::memory_state::MemoryState, Node, NodeDataLazyClose, NodeRefNone, NodeRefSingle,
-    NodeRefs, NodeRefsArray, NodeRefsVec, SelfRefColMut, Variant,
+    NodeRefsArray, NodeRefsVec, SelfRefColMut, Variant,
 };
 use orx_split_vec::prelude::PinnedVec;
 
@@ -11,51 +11,59 @@ use orx_split_vec::prelude::PinnedVec;
 /// This could be considered as the flexible and general approach.
 /// * [`MemoryReclaimNever`] which never reclaims the holes due to popped or removed; i.e., closed, nodes.
 /// This approach has the advantage that a `NodeIndex` is never invalidated due to memory reorganization.
-/// Therefore, it fits very well to situations where removals from the list is not substantial.
-pub trait MemoryReclaimPolicy<'a, V, T, Prev, Next>: Default + Clone + Copy
-where
-    V: Variant<'a, T, Prev = Prev, Next = Next>,
-    Prev: NodeRefs<'a, V, T>,
-    Next: NodeRefs<'a, V, T>,
-{
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
+/// Note that it still allows to reclaim closed nodes manually.
+/// Therefore, it fits very well to situations where
+///   * removals from the list are not substantial, or
+///   * having valid indices is crucial.
+pub trait MemoryReclaimPolicy: Default + Clone + Copy {
+    /// Manually attempts to reclaim closed nodes.
+    ///
+    /// # Safety
+    ///
+    /// Note that reclaiming closed nodes invalidates node indices (`NodeIndex`) which are already stored outside of this collection.
+    fn reclaim_closed_nodes<'rf, 'a, V, T, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
     where
-        P: PinnedVec<Node<'a, V, T>> + 'a;
+        T: 'a,
+        V: Variant<'a, T, Storage = NodeDataLazyClose<T>>,
+        P: PinnedVec<Node<'a, V, T>> + 'a,
+        SelfRefColMut<'rf, 'a, V, T, P>: Reclaim<V::Prev, V::Next>;
 
-    fn is_same_collection_as(&self, collection: &Self) -> bool
-    where
-        Self: MemoryReclaimPolicy<'a, V, T, Prev, Next>;
+    /// Returns whether or not two self referential collections are the same memory state or not.
+    /// This method is used internally to check validity of `NodeIndex`es.
+    fn at_the_same_state_as(&self, collection: &Self) -> bool;
 
+    /// Provides the state succeeding the current memory state.
     fn successor_state(&self) -> Self;
 }
 
 // never
 /// A do-nothing `MemoryReclaimPolicy` which would never reclaim the memory of the closed nodes, leaving them as holes in the underlying storage.
+///
+/// This approach has the advantage that a `NodeIndex` is never invalidated due to an automatic memory reorganization.
+///
+/// Furthermore, node utilization can still be maximized by manually calling `reclaim_closed_nodes` method.
 #[derive(Default, Clone, Copy)]
-pub struct MemoryReclaimNever;
+pub struct MemoryReclaimNever(pub(crate) MemoryState);
 
-impl<'a, V, T, Prev, Next> MemoryReclaimPolicy<'a, V, T, Prev, Next> for MemoryReclaimNever
-where
-    V: Variant<'a, T, Prev = Prev, Next = Next>,
-    Prev: NodeRefs<'a, V, T>,
-    Next: NodeRefs<'a, V, T>,
-    T: 'a,
-    V: 'a,
-{
+impl MemoryReclaimPolicy for MemoryReclaimNever {
     #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(_vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
+    fn reclaim_closed_nodes<'rf, 'a, V, T, P>(_: &mut SelfRefColMut<'rf, 'a, V, T, P>)
     where
+        T: 'a,
+        V: Variant<'a, T, Storage = NodeDataLazyClose<T>>,
         P: PinnedVec<Node<'a, V, T>> + 'a,
+        SelfRefColMut<'rf, 'a, V, T, P>: Reclaim<V::Prev, V::Next>,
     {
     }
 
     #[inline(always)]
-    fn is_same_collection_as(&self, _: &Self) -> bool {
-        true
+    fn at_the_same_state_as(&self, collection: &Self) -> bool {
+        self.0 == collection.0
     }
 
+    #[inline(always)]
     fn successor_state(&self) -> Self {
-        Self
+        Self(self.0.successor_state())
     }
 }
 
@@ -75,508 +83,137 @@ pub(crate) type MemoryReclaimAlways = MemoryReclaimOnThreshold<32>;
 #[derive(Default, Clone, Copy)]
 pub struct MemoryReclaimOnThreshold<const D: usize>(pub(crate) MemoryState);
 
-// threshold - unidirectional - single-x
-impl<'a, const D: usize, V, T> MemoryReclaimPolicy<'a, V, T, NodeRefSingle<'a, V, T>, NodeRefNone>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefSingle<'a, V, T>,
-        Next = NodeRefNone,
-    >,
-    T: 'a,
-    V: 'a,
-{
+impl<const D: usize> MemoryReclaimPolicy for MemoryReclaimOnThreshold<D> {
     #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
+    fn reclaim_closed_nodes<'rf, 'a, V, T, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
     where
+        T: 'a,
+        V: Variant<'a, T, Storage = NodeDataLazyClose<T>>,
         P: PinnedVec<Node<'a, V, T>> + 'a,
+        SelfRefColMut<'rf, 'a, V, T, P>: Reclaim<V::Prev, V::Next>,
     {
         if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_unidirectional::reclaim_closed_nodes(vec_mut);
+            vec_mut.reclaim();
         }
     }
 
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
+    #[inline(always)]
+    fn at_the_same_state_as(&self, collection: &Self) -> bool {
         self.0 == collection.0
     }
 
+    #[inline(always)]
     fn successor_state(&self) -> Self {
         Self(self.0.successor_state())
     }
 }
 
-// threshold - unidirectional - vec-x
-impl<'a, const D: usize, V, T> MemoryReclaimPolicy<'a, V, T, NodeRefsVec<'a, V, T>, NodeRefNone>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefsVec<'a, V, T>,
-        Next = NodeRefNone,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_unidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
+/// Trait defining how the `reclaim` operation must be handled so that:
+/// * correctness of all inter element references are maintained,
+/// * while the collection reclaims the unused nodes, or holes, which occurred due to removals from the collection.
+pub trait Reclaim<Prev, Next> {
+    /// Reclaims holes due to removals from the collection; i.e., not utilized memory.
+    ///
+    /// This operation:
+    /// * does not lead to allocation of memory or carrying the collection entirely to a different location;
+    /// * it might, on the other hand, change positions of a subset of nodes within already allocated memory;
+    /// * this eliminates all sparsity and achieves a compact memory layout of nodes.
+    ///
+    /// All inter element references are restored during the reclaim operation.
+    ///
+    /// However, node indices (`NodeIndex`) obtained prior to the reclaim operation are invalidated.
+    fn reclaim(&mut self);
 }
 
-// threshold - unidirectional - array-x
-impl<'a, const D: usize, const N: usize, V, T>
-    MemoryReclaimPolicy<'a, V, T, NodeRefsArray<'a, N, V, T>, NodeRefNone>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefsArray<'a, N, V, T>,
-        Next = NodeRefNone,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_unidirectional::reclaim_closed_nodes(vec_mut);
+macro_rules! impl_reclaim_unidirectional {
+    ($prev:ty, $next:ty) => {
+        impl<'rf, 'a, V, T, P> Reclaim<$prev, $next> for SelfRefColMut<'rf, 'a, V, T, P>
+        where
+            T: 'a,
+            V: Variant<'a, T, Storage = NodeDataLazyClose<T>, Prev = $prev, Next = $next>,
+            P: PinnedVec<Node<'a, V, T>> + 'a,
+        {
+            #[inline(always)]
+            fn reclaim(&mut self) {
+                crate::memory_reclaim::lazy_unidirectional::reclaim_closed_nodes(self);
+            }
         }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
+    };
+    ($const1:ident, $prev:ty, $next:ty) => {
+        impl<'rf, 'a, const $const1: usize, V, T, P> Reclaim<$prev, $next>
+            for SelfRefColMut<'rf, 'a, V, T, P>
+        where
+            T: 'a,
+            V: Variant<'a, T, Storage = NodeDataLazyClose<T>, Prev = $prev, Next = $next>,
+            P: PinnedVec<Node<'a, V, T>> + 'a,
+        {
+            #[inline(always)]
+            fn reclaim(&mut self) {
+                crate::memory_reclaim::lazy_unidirectional::reclaim_closed_nodes(self);
+            }
+        }
+    };
 }
 
-// threshold - unidirectional - x-single
-impl<'a, const D: usize, V, T> MemoryReclaimPolicy<'a, V, T, NodeRefNone, NodeRefSingle<'a, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefNone,
-        Next = NodeRefSingle<'a, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_unidirectional::reclaim_closed_nodes(vec_mut);
+macro_rules! impl_reclaim_bidirectional {
+    ($prev:ty, $next:ty) => {
+        impl<'rf, 'a, V, T, P> Reclaim<$prev, $next> for SelfRefColMut<'rf, 'a, V, T, P>
+        where
+            T: 'a,
+            V: Variant<'a, T, Storage = NodeDataLazyClose<T>, Prev = $prev, Next = $next>,
+            P: PinnedVec<Node<'a, V, T>> + 'a,
+        {
+            #[inline(always)]
+            fn reclaim(&mut self) {
+                crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(self);
+            }
         }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
+    };
+    ($const1:ident, $prev:ty, $next:ty) => {
+        impl<'rf, 'a, const $const1: usize, V, T, P> Reclaim<$prev, $next>
+            for SelfRefColMut<'rf, 'a, V, T, P>
+        where
+            T: 'a,
+            V: Variant<'a, T, Storage = NodeDataLazyClose<T>, Prev = $prev, Next = $next>,
+            P: PinnedVec<Node<'a, V, T>> + 'a,
+        {
+            #[inline(always)]
+            fn reclaim(&mut self) {
+                crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(self);
+            }
+        }
+    };
+    ($const1:ident, $const2:ident, $prev:ty, $next:ty) => {
+        impl<'rf, 'a, const $const1: usize, const $const2: usize, V, T, P> Reclaim<$prev, $next>
+            for SelfRefColMut<'rf, 'a, V, T, P>
+        where
+            T: 'a,
+            V: Variant<'a, T, Storage = NodeDataLazyClose<T>, Prev = $prev, Next = $next>,
+            P: PinnedVec<Node<'a, V, T>> + 'a,
+        {
+            #[inline(always)]
+            fn reclaim(&mut self) {
+                crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(self);
+            }
+        }
+    };
 }
 
-// threshold - unidirectional - x-vec
-impl<'a, const D: usize, V, T> MemoryReclaimPolicy<'a, V, T, NodeRefNone, NodeRefsVec<'a, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefNone,
-        Next = NodeRefsVec<'a, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_unidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
+impl_reclaim_unidirectional!(NodeRefNone, NodeRefSingle<'a, V, T>);
+impl_reclaim_unidirectional!(NodeRefNone, NodeRefsVec<'a, V, T>);
+impl_reclaim_unidirectional!(N, NodeRefNone, NodeRefsArray<'a, N, V, T>);
+impl_reclaim_unidirectional!(NodeRefSingle<'a, V, T>, NodeRefNone);
+impl_reclaim_unidirectional!(NodeRefsVec<'a, V, T>, NodeRefNone);
+impl_reclaim_unidirectional!(N, NodeRefsArray<'a, N, V, T>, NodeRefNone);
 
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
+impl_reclaim_bidirectional!(NodeRefSingle<'a, V, T>, NodeRefSingle<'a, V, T>);
+impl_reclaim_bidirectional!(NodeRefSingle<'a, V, T>, NodeRefsVec<'a, V, T>);
+impl_reclaim_bidirectional!(N, NodeRefSingle<'a, V, T>, NodeRefsArray<'a, N, V, T>);
 
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
-}
+impl_reclaim_bidirectional!(NodeRefsVec<'a, V, T>, NodeRefSingle<'a, V, T>);
+impl_reclaim_bidirectional!(NodeRefsVec<'a, V, T>, NodeRefsVec<'a, V, T>);
+impl_reclaim_bidirectional!(N, NodeRefsVec<'a, V, T>, NodeRefsArray<'a, N, V, T>);
 
-// threshold - unidirectional - x-array
-impl<'a, const D: usize, const N: usize, V, T>
-    MemoryReclaimPolicy<'a, V, T, NodeRefNone, NodeRefsArray<'a, N, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefNone,
-        Next = NodeRefsArray<'a, N, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_unidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
-}
-
-// threshold - bidirectional - single-single
-impl<'a, const D: usize, V, T>
-    MemoryReclaimPolicy<'a, V, T, NodeRefSingle<'a, V, T>, NodeRefSingle<'a, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefSingle<'a, V, T>,
-        Next = NodeRefSingle<'a, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
-}
-
-// threshold - bidirectional - single-vec
-impl<'a, const D: usize, V, T>
-    MemoryReclaimPolicy<'a, V, T, NodeRefSingle<'a, V, T>, NodeRefsVec<'a, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefSingle<'a, V, T>,
-        Next = NodeRefsVec<'a, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
-}
-
-// threshold - bidirectional - single-array
-impl<'a, const D: usize, const N: usize, V, T>
-    MemoryReclaimPolicy<'a, V, T, NodeRefSingle<'a, V, T>, NodeRefsArray<'a, N, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefSingle<'a, V, T>,
-        Next = NodeRefsArray<'a, N, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
-}
-
-// threshold - bidirectional - vec-single
-impl<'a, const D: usize, V, T>
-    MemoryReclaimPolicy<'a, V, T, NodeRefsVec<'a, V, T>, NodeRefSingle<'a, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefsVec<'a, V, T>,
-        Next = NodeRefSingle<'a, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
-}
-
-// threshold - bidirectional - vec-vec
-impl<'a, const D: usize, V, T>
-    MemoryReclaimPolicy<'a, V, T, NodeRefsVec<'a, V, T>, NodeRefsVec<'a, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefsVec<'a, V, T>,
-        Next = NodeRefsVec<'a, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
-}
-
-// threshold - bidirectional - vec-array
-impl<'a, const D: usize, const N: usize, V, T>
-    MemoryReclaimPolicy<'a, V, T, NodeRefsVec<'a, V, T>, NodeRefsArray<'a, N, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefsVec<'a, V, T>,
-        Next = NodeRefsArray<'a, N, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
-}
-
-// threshold - bidirectional - array-single
-impl<'a, const D: usize, const N: usize, V, T>
-    MemoryReclaimPolicy<'a, V, T, NodeRefsArray<'a, N, V, T>, NodeRefSingle<'a, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefsArray<'a, N, V, T>,
-        Next = NodeRefSingle<'a, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
-}
-
-// threshold - bidirectional - array-vec
-impl<'a, const D: usize, const N: usize, V, T>
-    MemoryReclaimPolicy<'a, V, T, NodeRefsArray<'a, N, V, T>, NodeRefsVec<'a, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefsArray<'a, N, V, T>,
-        Next = NodeRefsVec<'a, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
-}
-
-// threshold - bidirectional - array-array
-impl<'a, const D: usize, const N: usize, const M: usize, V, T>
-    MemoryReclaimPolicy<'a, V, T, NodeRefsArray<'a, N, V, T>, NodeRefsArray<'a, M, V, T>>
-    for MemoryReclaimOnThreshold<D>
-where
-    V: Variant<
-        'a,
-        T,
-        Storage = NodeDataLazyClose<T>,
-        Prev = NodeRefsArray<'a, N, V, T>,
-        Next = NodeRefsArray<'a, M, V, T>,
-    >,
-    T: 'a,
-    V: 'a,
-{
-    #[inline(always)]
-    fn reclaim_closed_nodes<'rf, P>(vec_mut: &mut SelfRefColMut<'rf, 'a, V, T, P>)
-    where
-        P: PinnedVec<Node<'a, V, T>> + 'a,
-    {
-        if vec_mut.need_to_reclaim_vacant_nodes::<D>() {
-            crate::memory_reclaim::lazy_bidirectional::reclaim_closed_nodes(vec_mut);
-        }
-    }
-
-    fn is_same_collection_as(&self, collection: &Self) -> bool {
-        self.0 == collection.0
-    }
-
-    fn successor_state(&self) -> Self {
-        Self(self.0.successor_state())
-    }
-}
+impl_reclaim_bidirectional!(N, NodeRefsArray<'a, N, V, T>, NodeRefSingle<'a, V, T>);
+impl_reclaim_bidirectional!(N, NodeRefsArray<'a, N, V, T>, NodeRefsVec<'a, V, T>);
+impl_reclaim_bidirectional!(N, M, NodeRefsArray<'a, N, V, T>, NodeRefsArray<'a, M, V, T>);
