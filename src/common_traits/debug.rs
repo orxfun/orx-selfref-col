@@ -73,7 +73,7 @@ mod tests {
         });
 
         let debug_str = format!("{:?}", col);
-        assert_eq!(debug_str, "SelfRefCol { len: 2, storage_len: 2, ends: NodeRefsVec([Some(\"b\"), None]), pinned_vec: SplitVec [\n    [SelfRefNode { data: Some(\"a\"), prev: NodeRefSingle(None), next: NodeRefsVec([]) }, SelfRefNode { data: Some(\"b\"), prev: NodeRefSingle(None), next: NodeRefsVec([]) }]\n]\n }");
+        assert_eq!(debug_str, "SelfRefCol { len: 2, storage_len: 2, ends: NodeRefsVec([Some(\"b\"), None]), pinned_vec: SplitVec { len: 2, capacity:4, data: [\n    [SelfRefNode { data: Some(\"a\"), prev: NodeRefSingle(None), next: NodeRefsVec([]) }, SelfRefNode { data: Some(\"b\"), prev: NodeRefSingle(None), next: NodeRefsVec([]) }]\n] }\n }");
 
         _ = col.mutate_take((), |x, _| {
             let first = x.ends().get()[0];
@@ -83,7 +83,7 @@ mod tests {
         });
 
         let debug_str = format!("{:?}", col);
-        assert_eq!(debug_str, "SelfRefCol { len: 1, storage_len: 2, ends: NodeRefsVec([None, None]), pinned_vec: SplitVec [\n    [SelfRefNode { data: Some(\"a\"), prev: NodeRefSingle(None), next: NodeRefsVec([]) }, SelfRefNode { data: None, prev: NodeRefSingle(None), next: NodeRefsVec([]) }]\n]\n }");
+        assert_eq!(debug_str, "SelfRefCol { len: 1, storage_len: 2, ends: NodeRefsVec([None, None]), pinned_vec: SplitVec { len: 2, capacity:4, data: [\n    [SelfRefNode { data: Some(\"a\"), prev: NodeRefSingle(None), next: NodeRefsVec([]) }, SelfRefNode { data: None, prev: NodeRefSingle(None), next: NodeRefsVec([]) }]\n] }\n }");
     }
 
     #[test]
