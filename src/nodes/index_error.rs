@@ -93,6 +93,7 @@ pub enum NodeIndexError {
     /// assert_eq!(a.invalidity_reason_for_collection(&col), Some(NodeIndexError::ReorganizedCollection));
     /// assert_eq!(b.invalidity_reason_for_collection(&col), Some(NodeIndexError::ReorganizedCollection));
     /// assert_eq!(c.invalidity_reason_for_collection(&col), Some(NodeIndexError::ReorganizedCollection));
+    /// ```
     ReorganizedCollection,
 }
 
