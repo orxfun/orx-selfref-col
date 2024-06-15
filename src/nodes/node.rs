@@ -260,6 +260,12 @@ where
         let left = self as *const Self;
         left == other
     }
+
+    #[cfg(test)]
+    pub(crate) fn refetch(&self) -> &Self {
+        let raw = std::hint::black_box(self as *const Self);
+        unsafe { &*raw }
+    }
 }
 
 impl<'a, V, T> Clone for Node<'a, V, T>
@@ -392,6 +398,8 @@ mod tests {
 
             let val_a = a.close_node_take_data(&x);
             assert_eq!('a', val_a);
+
+            let a = a.refetch();
             assert!(a.is_closed());
         }
     }
@@ -478,6 +486,7 @@ mod tests {
             assert!(a.prev().get().unwrap().ref_eq(b));
 
             a.clear_prev(&x);
+            let (a, b) = (a.refetch(), b.refetch());
             assert!(a.prev().get().is_none());
 
             a.set_prev_refs(&x, NodeRefSingle::empty());
@@ -490,6 +499,7 @@ mod tests {
             assert!(b.next().get().unwrap().ref_eq(a));
 
             b.clear_next(&x);
+            let (a, b) = (a.refetch(), b.refetch());
             assert!(b.next().get().is_none());
 
             a.set_next(&x, b);
@@ -608,6 +618,7 @@ mod tests {
             assert!(b.prev().get()[0].is_none());
 
             b.set_prev(&x, [Some(c)]);
+            let (b, c) = (b.refetch(), c.refetch());
             assert!(b.prev().get()[0].unwrap().ref_eq(c));
 
             b.clear_prev(&x);

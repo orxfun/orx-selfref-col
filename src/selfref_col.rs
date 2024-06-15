@@ -1,6 +1,6 @@
 use crate::{
     nodes::{can_leak::CanLeak, node::Node},
-    selfref_col_mut::{into_mut, SelfRefColMut},
+    selfref_col_mut::SelfRefColMut,
     variants::{
         memory_reclaim::{MemoryReclaimAlways, MemoryReclaimPolicy, Reclaim},
         variant::Variant,
@@ -352,7 +352,7 @@ where
     ///             if let Some(new_front) = new_front {
     ///                 new_front.clear_prev(&x);
     ///             }
-    ///             
+    ///
     ///             prior_front.close_node_take_data(&x)
     ///         })
     ///     })
@@ -534,7 +534,7 @@ where
     /// ```
     pub fn append_mutate<Move>(
         &mut self,
-        other: Self,
+        mut other: Self,
         value_to_move: Move,
         append_mutate_lambda: fn(
             RecursiveSelfRefColMut<'_, 'a, V, T>,
@@ -542,12 +542,14 @@ where
             Move,
         ),
     ) {
-        self.len += other.len;
-        let mut_other = unsafe { into_mut(&other) };
-        self.pinned_vec.append(other.pinned_vec);
         let x = SelfRefColMut::new(self);
-        let y = SelfRefColMut::new(mut_other);
+        let y = SelfRefColMut::new(&mut other);
         append_mutate_lambda(x, y, value_to_move);
+
+        self.len += other.len;
+        let mut other_vec = SplitVec::with_recursive_growth();
+        std::mem::swap(&mut other.pinned_vec, &mut other_vec);
+        self.pinned_vec.append(other_vec);
     }
 }
 
@@ -812,7 +814,6 @@ mod tests {
 
         col.reclaim_closed_nodes();
 
-        dbg!(col.node_utilization());
         assert!(approx_eq!(f32, col.node_utilization(), 3.0 / 3.0, ulps = 2));
     }
 }
