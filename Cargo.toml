@@ -1,6 +1,6 @@
 [package]
 name = "orx-selfref-col"
-version = "1.7.0"
+version = "1.8.0"
 edition = "2021"
 authors = ["orxfun <orx.ugur.arikan@gmail.com>"]
 description = "`SelfRefCol` is a core data structure to conveniently build safe and efficient self referential collections, such as linked lists and trees."
@@ -10,10 +10,10 @@ keywords = ["self-referential", "list", "tree", "recursive", "pinned"]
 categories = ["data-structures", "rust-patterns"]
 
 [dependencies]
-orx-pseudo-default = "1.2.0"
-orx-pinned-vec = "3.2.0"
-orx-fixed-vec = "3.2.0"
-orx-split-vec = "3.2.0"
+orx-pseudo-default = "1.2"
+orx-pinned-vec = "3.3"
+orx-fixed-vec = "3.3"
+orx-split-vec = "3.3"
 
 [dev-dependencies]
 test-case = "3.3"
