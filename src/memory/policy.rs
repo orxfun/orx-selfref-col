@@ -5,11 +5,11 @@ use orx_pinned_vec::PinnedVec;
 ///
 /// Two main implementors are:
 /// * [`MemoryReclaimOnThreshold::<D>`] reclaims unused holes whenever the utilization of the memory falls below a constant threshold determined by `D`.
-/// This could be considered as the flexible and general approach.
+///   This could be considered as the flexible and general approach.
 /// * [`MemoryReclaimNever`] which never reclaims the holes due to popped or removed; i.e., closed, nodes.
-/// This approach has the advantage that a `NodeIndex` is never invalidated due to memory reorganization.
-/// Note that it still allows to reclaim closed nodes manually.
-/// Therefore, it fits very well to situations where
+///   This approach has the advantage that a `NodeIndex` is never invalidated due to memory reorganization.
+///   Note that it still allows to reclaim closed nodes manually.
+///   Therefore, it fits very well to situations where
 ///   * removals from the list are not substantial, or
 ///   * having valid indices is crucial.
 ///

@@ -40,6 +40,10 @@ where
         }
     }
 
+    pub(crate) fn from_raw_parts(nodes: P, ends: V::Ends, len: usize) -> Self {
+        Self { nodes, ends, len }
+    }
+
     /// Destructs the collection into its inner pinned vec, ends and length.
     pub fn into_inner(self) -> (P, V::Ends, usize) {
         (self.nodes, self.ends, self.len)
@@ -102,7 +106,9 @@ where
     /// Panics if the pointer is not valid.
     #[inline(always)]
     pub fn position_of_unchecked(&self, node_ptr: &NodePtr<V>) -> usize {
-        self.nodes.index_of_ptr(node_ptr.ptr()).unwrap()
+        self.nodes
+            .index_of_ptr(node_ptr.ptr())
+            .expect("Pointer does not belong to the collection")
     }
 
     /// Returns a reference to the data.
@@ -128,9 +134,13 @@ where
 
     /// Returns the pointer of the element with the given `node_position`
     /// in the underlying nodes storage.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `node_position` is out of bounds.
     #[inline(always)]
     pub fn node_ptr_at_pos(&self, node_position: usize) -> NodePtr<V> {
-        let ptr = self.nodes.get_ptr(node_position).expect("is in bounds");
+        let ptr = self.nodes.get_ptr(node_position).expect("out-of-bounds");
         NodePtr::new(ptr as *mut Node<V>)
     }
 
