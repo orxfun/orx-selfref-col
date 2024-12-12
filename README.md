@@ -13,8 +13,6 @@ It is tricky to implement safe self referential collections, `SelfRefCol` provid
 * memory locations of elements of the collection will never change unless explicitly changed due to the pinned elements guarantees of the underlying [`PinnedVec`](https://crates.io/crates/orx-pinned-vec),
 * all references will be ensured to be among elements of the same collection.
 
-[orx-linked-list](https://crates.io/crates/orx-linked-list) crate defines both singly and doubly linked lists based on `SelfRefCol`.
-
 ### Efficient
 
 The elements of the `SelfRefCol` are internally stored in a [`PinnedVec`](https://crates.io/crates/orx-pinned-vec) implementation, which is crucial for the correctness and safety of the references.
