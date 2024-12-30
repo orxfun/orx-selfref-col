@@ -79,12 +79,14 @@ impl<const N: usize, V: Variant> RefsArrayLeftMost<N, V> {
 
     /// Creates an iterator over node pointers of the references collection.
     pub fn iter(&self) -> ArrayLeftMostPtrIter<V> {
-        ArrayLeftMostPtrIter::new(self.array.iter(), self.len)
+        let slice = &self.array[..self.len];
+        ArrayLeftMostPtrIter::new(slice.iter())
     }
 
     /// Creates a mutable iterator over node pointers of the references collection.
     pub fn iter_mut(&mut self) -> ArrayLeftMostPtrIterMut<V> {
-        ArrayLeftMostPtrIterMut::new(self.array.iter_mut(), self.len)
+        let slice = &mut self.array[..self.len];
+        ArrayLeftMostPtrIterMut::new(slice.iter_mut())
     }
 
     /// Returns whether or not the collection has room for another reference.
