@@ -13,6 +13,7 @@
 #![no_std]
 extern crate alloc;
 
+/// Node references.
 pub mod references;
 
 mod common_traits;

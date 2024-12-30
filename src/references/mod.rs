@@ -1,3 +1,4 @@
+/// Iterators over node references.
 pub mod iter;
 
 mod array;
