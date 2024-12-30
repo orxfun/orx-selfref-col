@@ -16,6 +16,15 @@ impl<'a, V: Variant> ArrayLeftMostPtrIter<'a, V> {
     }
 }
 
+impl<'a, V: Variant> Default for ArrayLeftMostPtrIter<'a, V> {
+    fn default() -> Self {
+        Self {
+            iter: Default::default(),
+            num_nones: 0,
+        }
+    }
+}
+
 impl<'a, V: Variant> Iterator for ArrayLeftMostPtrIter<'a, V> {
     type Item = &'a NodePtr<V>;
 
@@ -56,6 +65,15 @@ impl<'a, V: Variant> ArrayLeftMostPtrIterMut<'a, V> {
     ) -> Self {
         let num_nones = iter.len() - num_somes;
         Self { iter, num_nones }
+    }
+}
+
+impl<'a, V: Variant> Default for ArrayLeftMostPtrIterMut<'a, V> {
+    fn default() -> Self {
+        Self {
+            iter: Default::default(),
+            num_nones: 0,
+        }
     }
 }
 
