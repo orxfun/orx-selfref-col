@@ -89,14 +89,14 @@ where
     /// Returns a reference to the node with the given `node_ptr`.
     #[inline(always)]
     pub fn node(&self, node_ptr: &NodePtr<V>) -> &Node<V> {
-        unsafe { &*node_ptr.ptr() }
+        unsafe { &*node_ptr.ptr_mut() }
     }
 
     /// Returns the position of the node with the given `node_ptr`,
     /// None if the pointer is not valid.
     #[inline(always)]
     pub fn position_of(&self, node_ptr: &NodePtr<V>) -> Option<usize> {
-        self.nodes.index_of_ptr(node_ptr.ptr())
+        self.nodes.index_of_ptr(node_ptr.ptr_mut())
     }
 
     /// Returns the position of the node with the given `node_ptr`.
@@ -107,7 +107,7 @@ where
     #[inline(always)]
     pub fn position_of_unchecked(&self, node_ptr: &NodePtr<V>) -> usize {
         self.nodes
-            .index_of_ptr(node_ptr.ptr())
+            .index_of_ptr(node_ptr.ptr_mut())
             .expect("Pointer does not belong to the collection")
     }
 
@@ -123,7 +123,9 @@ where
     /// `node_ptr` belongs to (created from) this collection.
     #[inline(always)]
     pub unsafe fn data_unchecked(&self, node_ptr: &NodePtr<V>) -> &V::Item {
-        unsafe { &*node_ptr.ptr() }.data().expect("node is closed")
+        unsafe { &*node_ptr.ptr_mut() }
+            .data()
+            .expect("node is closed")
     }
 
     /// Returns a reference to the ends of the collection.
@@ -177,7 +179,7 @@ where
     /// `node_ptr` belongs to (created from) this collection.
     #[inline(always)]
     pub unsafe fn data_mut_unchecked(&mut self, node_ptr: &NodePtr<V>) -> &mut V::Item {
-        unsafe { &mut *node_ptr.ptr() }
+        unsafe { &mut *node_ptr.ptr_mut() }
             .data_mut()
             .expect("node is closed")
     }
@@ -190,7 +192,7 @@ where
     #[inline(always)]
     pub fn close(&mut self, node_ptr: &NodePtr<V>) -> V::Item {
         self.len -= 1;
-        unsafe { &mut *node_ptr.ptr() }.close()
+        unsafe { &mut *node_ptr.ptr_mut() }.close()
     }
 
     /// Returns a mutable reference to the ends of the collection.
@@ -201,7 +203,7 @@ where
     /// Returns a mutable reference to the node with the given `node_ptr`.
     #[inline(always)]
     pub fn node_mut(&mut self, node_ptr: &NodePtr<V>) -> &mut Node<V> {
-        unsafe { &mut *node_ptr.ptr() }
+        unsafe { &mut *node_ptr.ptr_mut() }
     }
 
     /// Swaps the closed node at the `closed_position` with the active node
@@ -222,7 +224,7 @@ where
     ///
     /// Panics if the node was already closed.
     pub fn swap_data(&mut self, node_ptr: &NodePtr<V>, new_value: V::Item) -> V::Item {
-        let node = unsafe { &mut *node_ptr.ptr() };
+        let node = unsafe { &mut *node_ptr.ptr_mut() };
         node.swap_data(new_value)
     }
 }

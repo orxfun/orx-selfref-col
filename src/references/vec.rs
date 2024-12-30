@@ -33,3 +33,30 @@ impl<V: Variant> Refs for RefsVec<V> {
         self.0.clear();
     }
 }
+
+impl<V: Variant> RefsVec<V> {
+    /// Returns the number of references.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns the i-th node pointer; None if out of bounds.
+    pub fn get(&self, i: usize) -> Option<&NodePtr<V>> {
+        self.0.get(i)
+    }
+
+    /// Creates an iterator over node pointers of the references collection.
+    pub fn iter(&self) -> core::slice::Iter<NodePtr<V>> {
+        self.0.iter()
+    }
+
+    /// Creates a mutable iterator over node pointers of the references collection.
+    pub fn iter_mut(&mut self) -> core::slice::IterMut<NodePtr<V>> {
+        self.0.iter_mut()
+    }
+
+    /// Pushes the node references to the end of the references collection.
+    pub fn push(&mut self, node_ptr: NodePtr<V>) {
+        self.0.push(node_ptr);
+    }
+}

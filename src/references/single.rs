@@ -35,8 +35,8 @@ impl<V: Variant> Refs for RefsSingle<V> {
 
 impl<V: Variant> RefsSingle<V> {
     /// Returns the pointer to the referenced node.
-    pub fn get(&self) -> Option<NodePtr<V>> {
-        self.0.clone()
+    pub fn get(&self) -> Option<&NodePtr<V>> {
+        self.0.as_ref()
     }
 
     /// Sets the pointer to the referenced node with the given `node_idx`.
@@ -45,8 +45,8 @@ impl<V: Variant> RefsSingle<V> {
     }
 
     /// Sets the pointer to the referenced node with the given `node_idx`.
-    pub fn set_some(&mut self, node_idx: &NodePtr<V>) {
-        self.0 = Some(node_idx.clone())
+    pub fn set_some(&mut self, node_idx: NodePtr<V>) {
+        self.0 = Some(node_idx)
     }
 
     /// Un-sets the reference.

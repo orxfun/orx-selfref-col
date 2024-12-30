@@ -13,11 +13,12 @@
 #![no_std]
 extern crate alloc;
 
+pub mod references;
+
 mod common_traits;
 mod core_col;
 mod memory;
 mod node;
-mod references;
 mod selfref_col;
 mod variant;
 
@@ -28,6 +29,6 @@ pub use memory::{
 };
 pub use node::Node;
 pub use references::{NodeIdx, NodeIdxError, NodePtr};
-pub use references::{Refs, RefsArray, RefsNone, RefsSingle, RefsVec};
+pub use references::{Refs, RefsArray, RefsArrayLeftMost, RefsNone, RefsSingle, RefsVec};
 pub use selfref_col::SelfRefCol;
 pub use variant::Variant;

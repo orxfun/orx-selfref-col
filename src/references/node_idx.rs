@@ -45,7 +45,7 @@ where
     #[inline(always)]
     pub fn new(state: MemoryState, node_ptr: &NodePtr<V>) -> Self {
         Self {
-            ptr: node_ptr.ptr(),
+            ptr: node_ptr.ptr_mut(),
             state,
         }
     }

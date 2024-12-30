@@ -37,24 +37,24 @@ where
 }
 
 impl<const N: usize, V: Variant> RefsArray<N, V> {
-    /// Returns the node pointer a the `ref_idx` position of the references array.
-    pub fn get(&self, ref_idx: usize) -> Option<NodePtr<V>> {
-        self.0[ref_idx].clone()
+    /// Returns the node pointer at the `ref_idx` position of the references array.
+    pub fn get(&self, ref_idx: usize) -> Option<&NodePtr<V>> {
+        self.0[ref_idx].as_ref()
     }
 
     // mut
 
-    /// Sets the the node pointer a the `ref_idx` position of the references array to the given `node_idx`.
+    /// Sets the the node pointer at the `ref_idx` position of the references array to the given `node_idx`.
     pub fn set(&mut self, ref_idx: usize, node_idx: Option<NodePtr<V>>) {
         self.0[ref_idx] = node_idx;
     }
 
-    /// Sets the the node pointer a the `ref_idx` position of the references array to the given `node_idx`.
-    pub fn set_some(&mut self, ref_idx: usize, node_idx: &NodePtr<V>) {
-        self.0[ref_idx] = Some(node_idx.clone())
+    /// Sets the the node pointer at the `ref_idx` position of the references array to the given `node_idx`.
+    pub fn set_some(&mut self, ref_idx: usize, node_idx: NodePtr<V>) {
+        self.0[ref_idx] = Some(node_idx)
     }
 
-    /// Un-sets the the node pointer a the `ref_idx` position of the references array.
+    /// Un-sets the the node pointer at the `ref_idx` position of the references array.
     pub fn set_none(&mut self, ref_idx: usize) {
         self.0[ref_idx] = None
     }

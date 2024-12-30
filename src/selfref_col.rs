@@ -164,6 +164,25 @@ where
         }
     }
 
+    /// Tries to get a valid pointer to the node with the given `NodeIdx`;
+    /// returns None if the index is invalid.
+    #[inline(always)]
+    pub fn get_ptr(&self, idx: &NodeIdx<V>) -> Option<NodePtr<V>> {
+        match self.nodes().contains_ptr(idx.ptr()) {
+            true => match idx.is_in_state(self.state) {
+                true => {
+                    let ptr = idx.ptr();
+                    match unsafe { &*ptr }.is_active() {
+                        true => Some(NodePtr::new(ptr)),
+                        false => None,
+                    }
+                }
+                false => None,
+            },
+            false => None,
+        }
+    }
+
     // mut
 
     /// Clears the collection and changes the memory state.
@@ -196,5 +215,11 @@ where
             },
             false => Err(NodeIdxError::OutOfBounds),
         }
+    }
+
+    /// Pushes the element with the given `data` and returns its index.
+    pub fn push_get_idx(&mut self, data: V::Item) -> NodeIdx<V> {
+        let node_ptr = self.push(data);
+        NodeIdx::new(self.memory_state(), &node_ptr)
     }
 }
