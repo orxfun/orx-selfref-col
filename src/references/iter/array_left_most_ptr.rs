@@ -6,13 +6,11 @@ use crate::{NodePtr, Variant};
 /// [`RefsArrayLeftMost`]: crate::RefsArrayLeftMost
 pub struct ArrayLeftMostPtrIter<'a, V: Variant> {
     iter: core::slice::Iter<'a, Option<NodePtr<V>>>,
-    num_nones: usize,
 }
 
 impl<'a, V: Variant> ArrayLeftMostPtrIter<'a, V> {
-    pub(crate) fn new(iter: core::slice::Iter<'a, Option<NodePtr<V>>>, num_somes: usize) -> Self {
-        let num_nones = iter.len() - num_somes;
-        Self { iter, num_nones }
+    pub(crate) fn new(iter: core::slice::Iter<'a, Option<NodePtr<V>>>) -> Self {
+        Self { iter }
     }
 }
 
@@ -20,7 +18,6 @@ impl<'a, V: Variant> Default for ArrayLeftMostPtrIter<'a, V> {
     fn default() -> Self {
         Self {
             iter: Default::default(),
-            num_nones: 0,
         }
     }
 }
@@ -35,7 +32,7 @@ impl<'a, V: Variant> Iterator for ArrayLeftMostPtrIter<'a, V> {
 
     #[inline(always)]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.iter.len() - self.num_nones;
+        let len = self.iter.len();
         (len, Some(len))
     }
 }
@@ -43,7 +40,7 @@ impl<'a, V: Variant> Iterator for ArrayLeftMostPtrIter<'a, V> {
 impl<'a, V: Variant> ExactSizeIterator for ArrayLeftMostPtrIter<'a, V> {
     #[inline(always)]
     fn len(&self) -> usize {
-        self.iter.len() - self.num_nones
+        self.iter.len()
     }
 }
 
@@ -61,16 +58,11 @@ impl<'a, V: Variant> DoubleEndedIterator for ArrayLeftMostPtrIter<'a, V> {
 /// [`RefsArrayLeftMost`]: crate::RefsArrayLeftMost
 pub struct ArrayLeftMostPtrIterMut<'a, V: Variant> {
     iter: core::slice::IterMut<'a, Option<NodePtr<V>>>,
-    num_nones: usize,
 }
 
 impl<'a, V: Variant> ArrayLeftMostPtrIterMut<'a, V> {
-    pub(crate) fn new(
-        iter: core::slice::IterMut<'a, Option<NodePtr<V>>>,
-        num_somes: usize,
-    ) -> Self {
-        let num_nones = iter.len() - num_somes;
-        Self { iter, num_nones }
+    pub(crate) fn new(iter: core::slice::IterMut<'a, Option<NodePtr<V>>>) -> Self {
+        Self { iter }
     }
 }
 
@@ -78,7 +70,6 @@ impl<'a, V: Variant> Default for ArrayLeftMostPtrIterMut<'a, V> {
     fn default() -> Self {
         Self {
             iter: Default::default(),
-            num_nones: 0,
         }
     }
 }
@@ -93,7 +84,7 @@ impl<'a, V: Variant> Iterator for ArrayLeftMostPtrIterMut<'a, V> {
 
     #[inline(always)]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.iter.len() - self.num_nones;
+        let len = self.iter.len();
         (len, Some(len))
     }
 }
@@ -101,7 +92,7 @@ impl<'a, V: Variant> Iterator for ArrayLeftMostPtrIterMut<'a, V> {
 impl<'a, V: Variant> ExactSizeIterator for ArrayLeftMostPtrIterMut<'a, V> {
     #[inline(always)]
     fn len(&self) -> usize {
-        self.iter.len() - self.num_nones
+        self.iter.len()
     }
 }
 
