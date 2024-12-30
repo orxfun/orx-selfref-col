@@ -47,6 +47,12 @@ impl<'a, V: Variant> ExactSizeIterator for ArrayLeftMostPtrIter<'a, V> {
     }
 }
 
+impl<'a, V: Variant> DoubleEndedIterator for ArrayLeftMostPtrIter<'a, V> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back().and_then(|x| x.as_ref())
+    }
+}
+
 // mut
 
 /// Mutable iterator for active references of an [`RefsArrayLeftMost`] collection,
@@ -96,5 +102,11 @@ impl<'a, V: Variant> ExactSizeIterator for ArrayLeftMostPtrIterMut<'a, V> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len() - self.num_nones
+    }
+}
+
+impl<'a, V: Variant> DoubleEndedIterator for ArrayLeftMostPtrIterMut<'a, V> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back().and_then(|x| x.as_mut())
     }
 }
