@@ -1,6 +1,7 @@
 use super::NodePtr;
-use crate::{MemoryState, Node, Variant};
+use crate::{MemoryPolicy, MemoryState, Node, SelfRefCol, Variant};
 use core::fmt::Debug;
+use orx_pinned_vec::PinnedVec;
 
 /// A node index providing safe and constant time access to elements
 /// of the self referential collection.
@@ -77,5 +78,20 @@ where
     #[inline(always)]
     pub fn node_ptr(&self) -> NodePtr<V> {
         NodePtr::new(self.ptr)
+    }
+
+    /// Returns true only if this index is valid for the given `collection`.
+    ///
+    /// A node index is valid iff it satisfies the following two conditions:
+    ///
+    /// * It is created from the given `collection`.
+    /// * Memory state of the `collection` has not changed since this index was created.
+    #[inline(always)]
+    pub fn is_valid_for<M, P>(&self, collection: &SelfRefCol<V, M, P>) -> bool
+    where
+        M: MemoryPolicy<V>,
+        P: PinnedVec<Node<V>>,
+    {
+        self.state == collection.memory_state() && collection.nodes().contains_ptr(self.ptr)
     }
 }
