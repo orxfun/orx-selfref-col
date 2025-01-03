@@ -5,13 +5,24 @@ use super::refs::Refs;
 pub struct RefsNone;
 
 impl Refs for RefsNone {
+    #[inline(always)]
     fn empty() -> Self {
         Self
     }
 
+    #[inline(always)]
     fn is_empty(&self) -> bool {
         true
     }
 
+    #[inline(always)]
     fn clear(&mut self) {}
+
+    #[inline(always)]
+    fn remove_at(&mut self, _: usize) {}
+
+    #[inline(always)]
+    fn remove(&mut self, _: usize) -> Option<usize> {
+        None
+    }
 }

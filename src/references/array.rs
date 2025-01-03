@@ -23,16 +23,39 @@ impl<const N: usize, V> Refs for RefsArray<N, V>
 where
     V: Variant,
 {
+    #[inline(always)]
     fn empty() -> Self {
         Self([const { None }; N])
     }
 
+    #[inline(always)]
     fn is_empty(&self) -> bool {
         self.0.iter().all(|x| x.is_none())
     }
 
+    #[inline(always)]
     fn clear(&mut self) {
         self.0.iter_mut().for_each(|x| _ = x.take());
+    }
+
+    #[inline(always)]
+    fn remove_at(&mut self, ref_idx: usize) {
+        self.0[ref_idx] = None;
+    }
+
+    #[inline(always)]
+    fn remove(&mut self, ptr: usize) -> Option<usize> {
+        let x = self.0.iter().enumerate().find(|x| match x.1 {
+            Some(x) => x.ptr() as usize == ptr,
+            None => false,
+        });
+        match x {
+            Some((ref_idx, _)) => {
+                self.0[ref_idx] = None;
+                Some(ref_idx)
+            }
+            None => None,
+        }
     }
 }
 

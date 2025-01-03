@@ -10,4 +10,12 @@ pub trait Refs: Clone + Debug {
 
     /// Clears the references.
     fn clear(&mut self);
+
+    /// Removes the reference at the given `ref_idx`.
+    fn remove_at(&mut self, ref_idx: usize);
+
+    /// Removes the node reference from references pointing to the node at given `ptr` location.
+    ///
+    /// Returns the position of the `ptr` among references if it exists; None otherwise.
+    fn remove(&mut self, ptr: usize) -> Option<usize>;
 }
