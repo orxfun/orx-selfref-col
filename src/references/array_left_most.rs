@@ -41,6 +41,7 @@ impl<const N: usize, V> Refs for RefsArrayLeftMost<N, V>
 where
     V: Variant,
 {
+    #[inline(always)]
     fn empty() -> Self {
         Self {
             array: [const { None }; N],
@@ -48,16 +49,41 @@ where
         }
     }
 
+    #[inline(always)]
     fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    #[inline(always)]
     fn clear(&mut self) {
         self.array
             .iter_mut()
             .take(self.len)
             .for_each(|x| _ = x.take());
         self.len = 0;
+    }
+
+    #[inline(always)]
+    fn remove_at(&mut self, ref_idx: usize) {
+        self.array[ref_idx] = None;
+        for i in (ref_idx + 1)..self.len {
+            self.array[i - 1] = self.array[i].take();
+        }
+    }
+
+    #[inline(always)]
+    fn remove(&mut self, ptr: usize) -> Option<usize> {
+        let x = self.array.iter().enumerate().find(|x| match x.1 {
+            Some(x) => x.ptr() as usize == ptr,
+            None => false,
+        });
+        match x {
+            Some((ref_idx, _)) => {
+                self.remove_at(ref_idx);
+                Some(ref_idx)
+            }
+            None => None,
+        }
     }
 }
 

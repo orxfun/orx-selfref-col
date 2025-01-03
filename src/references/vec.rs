@@ -21,16 +21,40 @@ impl<V: Variant> Debug for RefsVec<V> {
 }
 
 impl<V: Variant> Refs for RefsVec<V> {
+    #[inline(always)]
     fn empty() -> Self {
         Self(Vec::new())
     }
 
+    #[inline(always)]
     fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    #[inline(always)]
     fn clear(&mut self) {
         self.0.clear();
+    }
+
+    #[inline(always)]
+    fn remove_at(&mut self, ref_idx: usize) {
+        self.0.remove(ref_idx);
+    }
+
+    #[inline(always)]
+    fn remove(&mut self, ptr: usize) -> Option<usize> {
+        let x = self
+            .0
+            .iter()
+            .enumerate()
+            .find(|x| x.1.ptr() as usize == ptr);
+        match x {
+            Some((ref_idx, _)) => {
+                self.0.remove(ref_idx);
+                Some(ref_idx)
+            }
+            None => None,
+        }
     }
 }
 
