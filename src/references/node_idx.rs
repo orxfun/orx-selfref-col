@@ -92,6 +92,8 @@ where
         M: MemoryPolicy<V>,
         P: PinnedVec<Node<V>>,
     {
-        self.state == collection.memory_state() && collection.nodes().contains_ptr(self.ptr)
+        self.state == collection.memory_state()
+            && collection.nodes().contains_ptr(self.ptr)
+            && unsafe { &*self.ptr }.is_active()
     }
 }

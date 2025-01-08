@@ -1,5 +1,5 @@
 use super::{policy::MemoryPolicy, reclaimer::MemoryReclaimer};
-use crate::{CoreCol, Node, NodePtr, Variant};
+use crate::{CoreCol, Node, NodePtr, SelfRefCol, Variant};
 use core::marker::PhantomData;
 use orx_pinned_vec::PinnedVec;
 
@@ -31,6 +31,22 @@ impl<const D: usize, V: Variant, R: MemoryReclaimer<V>> Clone
 {
     fn clone(&self) -> Self {
         Self::default()
+    }
+}
+
+impl<const D: usize, V: Variant, R: MemoryReclaimer<V>> MemoryReclaimOnThreshold<D, V, R> {
+    /// Returns whether or not the collection `col` requires to reclaim memory; i.e.,
+    /// whether or not the utilization is below the constant threshold.
+    pub fn col_needs_memory_reclaim<P>(col: &SelfRefCol<V, Self, P>) -> bool
+    where
+        P: PinnedVec<Node<V>>,
+    {
+        let num_active_nodes = col.len();
+        let used = col.nodes().len();
+        let allowed_vacant = used >> D;
+        let num_vacant = used - num_active_nodes;
+
+        num_vacant > allowed_vacant
     }
 }
 
