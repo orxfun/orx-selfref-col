@@ -195,6 +195,13 @@ where
         unsafe { &mut *node_ptr.ptr_mut() }.close()
     }
 
+    /// Closes the node at the given `node_ptr` and returns its data the node was active.
+    /// Does nothing and returns None if the node was already closed.
+    pub fn close_if_active(&mut self, node_ptr: &NodePtr<V>) -> Option<V::Item> {
+        let node = unsafe { &mut *node_ptr.ptr_mut() };
+        node.is_active().then(|| node.close())
+    }
+
     /// Returns a mutable reference to the ends of the collection.
     pub fn ends_mut(&mut self) -> &mut V::Ends {
         &mut self.ends
