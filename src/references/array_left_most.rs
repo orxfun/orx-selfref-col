@@ -69,6 +69,7 @@ where
         for i in (ref_idx + 1)..self.len {
             self.array[i - 1] = self.array[i].take();
         }
+        self.len -= 1;
     }
 
     #[inline(always)]
@@ -96,11 +97,6 @@ impl<const N: usize, V: Variant> RefsArrayLeftMost<N, V> {
     /// Returns a reference to the node pointer at the `ref_idx` position of the references array.
     pub fn get(&self, ref_idx: usize) -> Option<&NodePtr<V>> {
         self.array[ref_idx].as_ref()
-    }
-
-    /// Returns a mutable reference to the node pointer at the `ref_idx` position of the references array.
-    pub fn get_mut(&mut self, ref_idx: usize) -> Option<&mut NodePtr<V>> {
-        self.array[ref_idx].as_mut()
     }
 
     /// Creates an iterator over node pointers of the references collection.
