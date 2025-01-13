@@ -64,6 +64,11 @@ impl<V: Variant> RefsVec<V> {
         self.0.len()
     }
 
+    /// Returns true if the number of references is zero.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Returns the i-th node pointer; None if out of bounds.
     pub fn get(&self, i: usize) -> Option<&NodePtr<V>> {
         self.0.get(i)
@@ -82,5 +87,41 @@ impl<V: Variant> RefsVec<V> {
     /// Pushes the node references to the end of the references collection.
     pub fn push(&mut self, node_ptr: NodePtr<V>) {
         self.0.push(node_ptr);
+    }
+
+    pub fn insert(&mut self, position: usize, node_ptr: NodePtr<V>) {
+        self.0.insert(position, node_ptr);
+    }
+
+    pub fn push_before(&mut self, pivot_ptr: &NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
+        let position = self.iter().position(|x| x == pivot_ptr);
+        if let Some(p) = position {
+            self.0.insert(p, node_ptr);
+        }
+        position
+    }
+
+    pub fn push_after(&mut self, pivot_ptr: &NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
+        let position = self.iter().position(|x| x == pivot_ptr);
+        if let Some(p) = position {
+            self.0.insert(p + 1, node_ptr);
+        }
+        position
+    }
+
+    /// Replaces the node reference `old_node_ptr` with the `new_node_ptr` and returns
+    /// the position of the reference.
+    ///
+    /// Does nothing and returns None if the `old_node_ptr` is absent.
+    pub fn replace_with(
+        &mut self,
+        old_node_ptr: &NodePtr<V>,
+        new_node_ptr: NodePtr<V>,
+    ) -> Option<usize> {
+        let position = self.0.iter().position(|x| x == old_node_ptr);
+        if let Some(p) = position {
+            self.0[p] = new_node_ptr;
+        }
+        position
     }
 }

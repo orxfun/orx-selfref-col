@@ -14,7 +14,7 @@ impl<'a, V: Variant> ArrayLeftMostPtrIter<'a, V> {
     }
 }
 
-impl<'a, V: Variant> Default for ArrayLeftMostPtrIter<'a, V> {
+impl<V: Variant> Default for ArrayLeftMostPtrIter<'_, V> {
     fn default() -> Self {
         Self {
             iter: Default::default(),
@@ -37,14 +37,14 @@ impl<'a, V: Variant> Iterator for ArrayLeftMostPtrIter<'a, V> {
     }
 }
 
-impl<'a, V: Variant> ExactSizeIterator for ArrayLeftMostPtrIter<'a, V> {
+impl<V: Variant> ExactSizeIterator for ArrayLeftMostPtrIter<'_, V> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-impl<'a, V: Variant> DoubleEndedIterator for ArrayLeftMostPtrIter<'a, V> {
+impl<V: Variant> DoubleEndedIterator for ArrayLeftMostPtrIter<'_, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().and_then(|x| x.as_ref())
     }
@@ -66,7 +66,7 @@ impl<'a, V: Variant> ArrayLeftMostPtrIterMut<'a, V> {
     }
 }
 
-impl<'a, V: Variant> Default for ArrayLeftMostPtrIterMut<'a, V> {
+impl<V: Variant> Default for ArrayLeftMostPtrIterMut<'_, V> {
     fn default() -> Self {
         Self {
             iter: Default::default(),
@@ -89,14 +89,14 @@ impl<'a, V: Variant> Iterator for ArrayLeftMostPtrIterMut<'a, V> {
     }
 }
 
-impl<'a, V: Variant> ExactSizeIterator for ArrayLeftMostPtrIterMut<'a, V> {
+impl<V: Variant> ExactSizeIterator for ArrayLeftMostPtrIterMut<'_, V> {
     #[inline(always)]
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-impl<'a, V: Variant> DoubleEndedIterator for ArrayLeftMostPtrIterMut<'a, V> {
+impl<V: Variant> DoubleEndedIterator for ArrayLeftMostPtrIterMut<'_, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().and_then(|x| x.as_mut())
     }
