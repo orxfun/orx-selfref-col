@@ -94,6 +94,11 @@ impl<const N: usize, V: Variant> RefsArrayLeftMost<N, V> {
         self.len
     }
 
+    /// Returns true if the number of references is zero.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Returns a reference to the node pointer at the `ref_idx` position of the references array.
     pub fn get(&self, ref_idx: usize) -> Option<&NodePtr<V>> {
         self.array[ref_idx].as_ref()
@@ -122,13 +127,60 @@ impl<const N: usize, V: Variant> RefsArrayLeftMost<N, V> {
     ///
     /// Panics if the array already has `N` references; i.e., when `self.has_room()` is false.
     pub fn push(&mut self, node_ptr: NodePtr<V>) {
-        assert!(
-            self.has_room(),
-            "Pushing the {}-th reference to array-backed references with maximum of {} elements.",
-            N + 1,
-            N
-        );
+        self.assert_has_room_for::<1>();
         self.array[self.len] = Some(node_ptr);
         self.len += 1;
+    }
+
+    pub fn insert(&mut self, position: usize, node_ptr: NodePtr<V>) {
+        for q in (position..self.len).rev() {
+            self.array[q + 1] = self.array[q].clone();
+        }
+        self.array[position] = Some(node_ptr);
+        self.len += 1;
+    }
+
+    pub fn push_before(&mut self, pivot_ptr: &NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
+        self.assert_has_room_for::<1>();
+        let position = self.iter().position(|x| x == pivot_ptr);
+        if let Some(p) = position {
+            self.insert(p, node_ptr);
+        }
+        position
+    }
+
+    pub fn push_after(&mut self, pivot_ptr: &NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
+        self.assert_has_room_for::<1>();
+        let position = self.iter().position(|x| x == pivot_ptr);
+        if let Some(p) = position {
+            self.insert(p + 1, node_ptr);
+        }
+        position
+    }
+
+    /// Replaces the node reference `old_node_ptr` with the `new_node_ptr` and returns
+    /// the position of the reference.
+    ///
+    /// Does nothing and returns None if the `old_node_ptr` is absent.
+    pub fn replace_with(
+        &mut self,
+        old_node_ptr: &NodePtr<V>,
+        new_node_ptr: NodePtr<V>,
+    ) -> Option<usize> {
+        let position = self.iter().position(|x| x == old_node_ptr);
+        if let Some(p) = position {
+            self.array[p] = Some(new_node_ptr);
+        }
+        position
+    }
+
+    // helpers
+    fn assert_has_room_for<const P: usize>(&self) {
+        assert!(
+            self.len + P <= N,
+            "Pushing the {}-th reference to array-backed references with maximum of {} elements.",
+            N + P,
+            N
+        );
     }
 }
