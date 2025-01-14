@@ -132,6 +132,7 @@ impl<const N: usize, V: Variant> RefsArrayLeftMost<N, V> {
         self.len += 1;
     }
 
+    /// Inserts the reference with the given `node_ptr` to the given `position` of the references collection.
     pub fn insert(&mut self, position: usize, node_ptr: NodePtr<V>) {
         for q in (position..self.len).rev() {
             self.array[q + 1] = self.array[q].clone();
@@ -140,6 +141,10 @@ impl<const N: usize, V: Variant> RefsArrayLeftMost<N, V> {
         self.len += 1;
     }
 
+    /// Inserts the reference with the given `node_ptr` just before the given `pivot_ptr` the reference if it exists;
+    /// and returns the position that the new reference is inserted to.
+    ///
+    /// Does nothing leaving the children unchanged if the `pivot_ptr` reference does not exists, and returns None.
     pub fn push_before(&mut self, pivot_ptr: &NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
         self.assert_has_room_for::<1>();
         let position = self.iter().position(|x| x == pivot_ptr);
@@ -149,6 +154,10 @@ impl<const N: usize, V: Variant> RefsArrayLeftMost<N, V> {
         position
     }
 
+    /// Inserts the reference with the given `node_ptr` just after the given `pivot_ptr` the reference if it exists;
+    /// and returns the position that the new reference is inserted to.
+    ///
+    /// Does nothing leaving the children unchanged if the `pivot_ptr` reference does not exists, and returns None.
     pub fn push_after(&mut self, pivot_ptr: &NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
         self.assert_has_room_for::<1>();
         let position = self.iter().position(|x| x == pivot_ptr);

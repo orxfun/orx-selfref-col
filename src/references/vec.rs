@@ -89,10 +89,15 @@ impl<V: Variant> RefsVec<V> {
         self.0.push(node_ptr);
     }
 
+    /// Inserts the reference with the given `node_ptr` to the given `position` of the references collection.
     pub fn insert(&mut self, position: usize, node_ptr: NodePtr<V>) {
         self.0.insert(position, node_ptr);
     }
 
+    /// Inserts the reference with the given `node_ptr` just before the given `pivot_ptr` the reference if it exists;
+    /// and returns the position that the new reference is inserted to.
+    ///
+    /// Does nothing leaving the children unchanged if the `pivot_ptr` reference does not exists, and returns None.
     pub fn push_before(&mut self, pivot_ptr: &NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
         let position = self.iter().position(|x| x == pivot_ptr);
         if let Some(p) = position {
@@ -101,6 +106,10 @@ impl<V: Variant> RefsVec<V> {
         position
     }
 
+    /// Inserts the reference with the given `node_ptr` just after the given `pivot_ptr` the reference if it exists;
+    /// and returns the position that the new reference is inserted to.
+    ///
+    /// Does nothing leaving the children unchanged if the `pivot_ptr` reference does not exists, and returns None.
     pub fn push_after(&mut self, pivot_ptr: &NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
         let position = self.iter().position(|x| x == pivot_ptr);
         if let Some(p) = position {
