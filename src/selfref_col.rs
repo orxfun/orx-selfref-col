@@ -155,6 +155,19 @@ where
         }
     }
 
+    /// Returns the node index error if the index is invalid.
+    /// Returns None if it is valid.
+    #[inline(always)]
+    pub fn node_idx_error(&self, idx: &NodeIdx<V>) -> Option<NodeIdxError> {
+        match self.try_node_from_idx(idx) {
+            Ok(node) => match node.is_active() {
+                true => None,
+                false => Some(NodeIdxError::RemovedNode),
+            },
+            Err(err) => Some(err),
+        }
+    }
+
     /// Tries to get a valid pointer to the node with the given `NodeIdx`;
     /// returns the error if the index is invalid.
     #[inline(always)]
