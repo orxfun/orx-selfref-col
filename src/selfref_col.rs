@@ -114,6 +114,16 @@ where
         data
     }
 
+    /// Succeeding the operation of closing of node with the given `node_ptr`,
+    /// reclaims closed nodes if necessary.
+    ///
+    /// Returns whether the memory state changed.
+    pub fn reclaim_from_closed_node(&mut self, node_ptr: &NodePtr<V>) -> bool {
+        let state_changed = M::reclaim_closed_nodes(self, node_ptr);
+        self.update_state(state_changed);
+        state_changed
+    }
+
     /// If `state_changed` is true, proceeds to the next memory state.
     #[inline(always)]
     pub fn update_state(&mut self, state_changed: bool) {
