@@ -1,6 +1,6 @@
 [package]
 name = "orx-selfref-col"
-version = "2.2.0"
+version = "2.3.0"
 edition = "2021"
 authors = ["orxfun <orx.ugur.arikan@gmail.com>"]
 description = "SelfRefCol is a core data structure to conveniently build safe and efficient self referential collections, such as linked lists and trees."
