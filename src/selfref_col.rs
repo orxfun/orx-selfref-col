@@ -114,6 +114,16 @@ where
         data
     }
 
+    /// Succeeding the operation of closing of node with the given `node_ptr`,
+    /// reclaims closed nodes if necessary.
+    ///
+    /// Returns whether the memory state changed.
+    pub fn reclaim_from_closed_node(&mut self, node_ptr: &NodePtr<V>) -> bool {
+        let state_changed = M::reclaim_closed_nodes(self, node_ptr);
+        self.update_state(state_changed);
+        state_changed
+    }
+
     /// If `state_changed` is true, proceeds to the next memory state.
     #[inline(always)]
     pub fn update_state(&mut self, state_changed: bool) {
@@ -145,6 +155,19 @@ where
         }
     }
 
+    /// Returns the node index error if the index is invalid.
+    /// Returns None if it is valid.
+    #[inline(always)]
+    pub fn node_idx_error(&self, idx: &NodeIdx<V>) -> Option<NodeIdxError> {
+        match self.try_node_from_idx(idx) {
+            Ok(node) => match node.is_active() {
+                true => None,
+                false => Some(NodeIdxError::RemovedNode),
+            },
+            Err(err) => Some(err),
+        }
+    }
+
     /// Tries to get a valid pointer to the node with the given `NodeIdx`;
     /// returns the error if the index is invalid.
     #[inline(always)]
@@ -161,6 +184,25 @@ where
                 false => Err(NodeIdxError::ReorganizedCollection),
             },
             false => Err(NodeIdxError::OutOfBounds),
+        }
+    }
+
+    /// Tries to get a valid pointer to the node with the given `NodeIdx`;
+    /// returns None if the index is invalid.
+    #[inline(always)]
+    pub fn get_ptr(&self, idx: &NodeIdx<V>) -> Option<NodePtr<V>> {
+        match self.nodes().contains_ptr(idx.ptr()) {
+            true => match idx.is_in_state(self.state) {
+                true => {
+                    let ptr = idx.ptr();
+                    match unsafe { &*ptr }.is_active() {
+                        true => Some(NodePtr::new(ptr)),
+                        false => None,
+                    }
+                }
+                false => None,
+            },
+            false => None,
         }
     }
 
@@ -196,5 +238,11 @@ where
             },
             false => Err(NodeIdxError::OutOfBounds),
         }
+    }
+
+    /// Pushes the element with the given `data` and returns its index.
+    pub fn push_get_idx(&mut self, data: V::Item) -> NodeIdx<V> {
+        let node_ptr = self.push(data);
+        NodeIdx::new(self.memory_state(), &node_ptr)
     }
 }

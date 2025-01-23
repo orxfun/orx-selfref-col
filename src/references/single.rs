@@ -20,23 +20,50 @@ impl<V: Variant> Debug for RefsSingle<V> {
 }
 
 impl<V: Variant> Refs for RefsSingle<V> {
+    #[inline(always)]
     fn empty() -> Self {
         Self(None)
     }
 
+    #[inline(always)]
     fn is_empty(&self) -> bool {
         self.0.is_none()
     }
 
+    #[inline(always)]
     fn clear(&mut self) {
         _ = self.0.take();
+    }
+
+    #[inline(always)]
+    fn remove_at(&mut self, ref_idx: usize) {
+        assert_eq!(
+            ref_idx, 0,
+            "Reference idx {} is out of bounds for RefsSingle.",
+            ref_idx
+        );
+        self.clear();
+    }
+
+    #[inline(always)]
+    fn remove(&mut self, ptr: usize) -> Option<usize> {
+        match &mut self.0 {
+            None => None,
+            Some(x) => match x.ptr() as usize == ptr {
+                true => {
+                    self.clear();
+                    Some(0)
+                }
+                false => None,
+            },
+        }
     }
 }
 
 impl<V: Variant> RefsSingle<V> {
     /// Returns the pointer to the referenced node.
-    pub fn get(&self) -> Option<NodePtr<V>> {
-        self.0.clone()
+    pub fn get(&self) -> Option<&NodePtr<V>> {
+        self.0.as_ref()
     }
 
     /// Sets the pointer to the referenced node with the given `node_idx`.
@@ -45,8 +72,8 @@ impl<V: Variant> RefsSingle<V> {
     }
 
     /// Sets the pointer to the referenced node with the given `node_idx`.
-    pub fn set_some(&mut self, node_idx: &NodePtr<V>) {
-        self.0 = Some(node_idx.clone())
+    pub fn set_some(&mut self, node_idx: NodePtr<V>) {
+        self.0 = Some(node_idx)
     }
 
     /// Un-sets the reference.

@@ -42,21 +42,21 @@ where
     let new_idx = col.node_ptr_at_pos(vacant);
     let old_idx = col.node_ptr_at_pos(occupied);
 
-    if let Some(prev) = col.nodes()[occupied].prev().get() {
+    if let Some(prev) = col.nodes()[occupied].prev().get().cloned() {
         col.node_mut(&prev).next_mut().set(Some(new_idx.clone()));
     }
 
-    if let Some(next) = col.nodes()[occupied].next().get() {
+    if let Some(next) = col.nodes()[occupied].next().get().cloned() {
         col.node_mut(&next).prev_mut().set(Some(new_idx.clone()));
     }
 
     col.move_node(vacant, occupied);
 
-    if old_idx == col.ends().get(0).expect("nonempty list") {
+    if old_idx == col.ends().get(0).cloned().expect("nonempty list") {
         col.ends_mut().set(0, Some(new_idx.clone()));
     }
 
-    if old_idx == col.ends().get(1).expect("nonempty list") {
+    if old_idx == col.ends().get(1).cloned().expect("nonempty list") {
         col.ends_mut().set(1, Some(new_idx));
     }
 }
@@ -127,14 +127,14 @@ fn front<M>(col: &Col<String, M>) -> Option<NodePtr<Doubly<String>>>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    col.ends().get(0)
+    col.ends().get(0).cloned()
 }
 
 fn back<M>(col: &Col<String, M>) -> Option<NodePtr<Doubly<String>>>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    col.ends().get(1)
+    col.ends().get(1).cloned()
 }
 
 fn front_back<M>(col: &Col<String, M>) -> [&Node<Doubly<String>>; 2]
@@ -157,7 +157,12 @@ where
         x if x < half_len => {
             let mut current = front(col).expect("non-empty list");
             for _ in 0..at {
-                current = col.node(&current).next().get().expect("must exist");
+                current = col
+                    .node(&current)
+                    .next()
+                    .get()
+                    .cloned()
+                    .expect("must exist");
             }
             Some(current)
         }
@@ -165,7 +170,12 @@ where
             let mut current = back(col).expect("non-empty list");
             let num_jumps = len - at - 1;
             for _ in 0..num_jumps {
-                current = col.node(&current).prev().get().expect("must exist");
+                current = col
+                    .node(&current)
+                    .prev()
+                    .get()
+                    .cloned()
+                    .expect("must exist");
             }
             Some(current)
         }
@@ -187,7 +197,7 @@ where
     M: MemoryPolicy<Doubly<String>>,
 {
     let idx = col.push(value);
-    let old_front = col.ends().get(0).unwrap();
+    let old_front = col.ends().get(0).cloned().unwrap();
 
     col.node_mut(&idx).next_mut().set(Some(old_front.clone()));
     col.node_mut(&old_front).prev_mut().set(Some(idx.clone()));
@@ -199,7 +209,7 @@ where
     M: MemoryPolicy<Doubly<String>>,
 {
     let idx = col.push(value);
-    let old_back = col.ends().get(1).unwrap();
+    let old_back = col.ends().get(1).cloned().unwrap();
 
     col.node_mut(&idx).prev_mut().set(Some(old_back.clone()));
     col.node_mut(&old_back).next_mut().set(Some(idx.clone()));
@@ -210,8 +220,8 @@ fn pop_front<M>(col: &mut Col<String, M>) -> Option<String>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    col.ends().get(0).map(|front_idx| {
-        match col.node(&front_idx).next().get() {
+    col.ends().get(0).cloned().map(|front_idx| {
+        match col.node(&front_idx).next().get().cloned() {
             Some(new_front) => {
                 col.node_mut(&new_front).prev_mut().clear();
                 col.ends_mut().set(0, Some(new_front));
@@ -227,8 +237,8 @@ fn pop_back<M>(col: &mut Col<String, M>) -> Option<String>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    col.ends().get(1).map(|back_idx| {
-        match col.node(&back_idx).prev().get() {
+    col.ends().get(1).cloned().map(|back_idx| {
+        match col.node(&back_idx).prev().get().cloned() {
             Some(new_back) => {
                 col.node_mut(&new_back).next_mut().clear();
                 col.ends_mut().set(1, Some(new_back));
@@ -251,7 +261,7 @@ where
 
                 let [prev, next] = {
                     let node = col.node(&node_idx);
-                    [node.prev().get(), node.next().get()]
+                    [node.prev().get().cloned(), node.next().get().cloned()]
                 };
 
                 match prev {

@@ -34,9 +34,15 @@ impl<V: Variant> NodePtr<V> {
         }
     }
 
-    /// Returns the raw pointer.
+    /// Returns the const raw pointer.
     #[inline(always)]
-    pub fn ptr(&self) -> *mut Node<V> {
+    pub fn ptr(&self) -> *const Node<V> {
+        self.ptr
+    }
+
+    /// Returns the mutable raw pointer.
+    #[inline(always)]
+    pub fn ptr_mut(&self) -> *mut Node<V> {
         self.ptr
     }
 
@@ -63,7 +69,7 @@ impl<V: Variant> NodePtr<V> {
     /// * the collection is still alive, and finally,
     /// * the memory state of the collection has not changed since the pointer was created.
     #[inline]
-    pub unsafe fn node_mut(&mut self) -> &mut Node<V> {
+    pub unsafe fn node_mut(&self) -> &mut Node<V> {
         &mut *self.ptr
     }
 }
