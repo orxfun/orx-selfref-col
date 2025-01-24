@@ -101,7 +101,10 @@ impl<const N: usize, V: Variant> RefsArrayLeftMost<N, V> {
 
     /// Returns a reference to the node pointer at the `ref_idx` position of the references array.
     pub fn get(&self, ref_idx: usize) -> Option<&NodePtr<V>> {
-        self.array[ref_idx].as_ref()
+        match ref_idx < N {
+            true => self.array[ref_idx].as_ref(),
+            false => None,
+        }
     }
 
     /// Creates an iterator over node pointers of the references collection.
