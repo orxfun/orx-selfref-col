@@ -1,6 +1,7 @@
 # orx-selfref-col
 
 [![orx-selfref-col crate](https://img.shields.io/crates/v/orx-selfref-col.svg)](https://crates.io/crates/orx-selfref-col)
+[![orx-selfref-col crate](https://img.shields.io/crates/d/orx-selfref-col.svg)](https://crates.io/crates/orx-selfref-col)
 [![orx-selfref-col documentation](https://docs.rs/orx-selfref-col/badge.svg)](https://docs.rs/orx-selfref-col)
 
 `SelfRefCol` is a core data structure to conveniently build safe and efficient self referential collections, such as linked lists and trees.
@@ -113,4 +114,4 @@ Contributions are welcome! If you notice an error, have a question or think some
 
 ## License
 
-This library is licensed under MIT license. See LICENSE for details.
+Dual-licensed under [Apache 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT).
