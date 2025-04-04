@@ -69,6 +69,7 @@ impl<V: Variant> NodePtr<V> {
     /// * the collection is still alive, and finally,
     /// * the memory state of the collection has not changed since the pointer was created.
     #[inline]
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn node_mut(&self) -> &mut Node<V> {
         unsafe { &mut *self.ptr }
     }
