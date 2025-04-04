@@ -57,7 +57,7 @@ impl<V: Variant> NodePtr<V> {
     /// * the memory state of the collection has not changed since the pointer was created.
     #[inline]
     pub unsafe fn node(&self) -> &Node<V> {
-        &*self.ptr
+        unsafe { &*self.ptr }
     }
 
     /// Returns a mutable reference to the node.
@@ -70,6 +70,6 @@ impl<V: Variant> NodePtr<V> {
     /// * the memory state of the collection has not changed since the pointer was created.
     #[inline]
     pub unsafe fn node_mut(&self) -> &mut Node<V> {
-        &mut *self.ptr
+        unsafe { &mut *self.ptr }
     }
 }
