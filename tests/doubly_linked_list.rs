@@ -604,7 +604,7 @@ fn reorganize_threshold() {
 }
 
 #[test]
-fn remove_at_test_abc() {
+fn remove_at_test() {
     let mut col: Col<String, PolicyOnThreshold<2, String>> = SelfRefCol::new();
 
     let nodes = |col: &Col<String, PolicyOnThreshold<2, String>>| {
