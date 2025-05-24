@@ -1,7 +1,7 @@
 use super::{
+    NodePtr,
     iter::{ArrayLeftMostPtrIter, ArrayLeftMostPtrIterMut},
     refs::Refs,
-    NodePtr,
 };
 use crate::variant::Variant;
 use core::fmt::Debug;

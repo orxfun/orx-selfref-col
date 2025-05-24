@@ -1,5 +1,5 @@
 use crate::{
-    node::Node, CoreCol, MemoryPolicy, MemoryState, NodeIdx, NodeIdxError, NodePtr, Variant,
+    CoreCol, MemoryPolicy, MemoryState, NodeIdx, NodeIdxError, NodePtr, Variant, node::Node,
 };
 use core::ops::{Deref, DerefMut};
 use orx_pinned_vec::PinnedVec;

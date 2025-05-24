@@ -11,6 +11,10 @@ where
     next: V::Next,
 }
 
+unsafe impl<V: Variant> Send for Node<V> where V::Item: Send {}
+
+unsafe impl<V: Variant> Sync for Node<V> where V::Item: Sync {}
+
 impl<V> Node<V>
 where
     V: Variant,
@@ -109,9 +113,7 @@ where
 
     /// Closes the node and returns its data.
     ///
-    /// # Panics
-    ///
-    /// Panics if the node was already closed.
+    /// Returns None if the node was already closed.
     pub fn take_data(&mut self) -> Option<V::Item> {
         self.data.take()
     }
