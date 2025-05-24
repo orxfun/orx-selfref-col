@@ -1,4 +1,4 @@
-use crate::{node::Node, NodePtr, Refs, Utilization, Variant};
+use crate::{NodePtr, Refs, Utilization, Variant, node::Node};
 use orx_pinned_vec::PinnedVec;
 use orx_split_vec::{Recursive, SplitVec};
 

@@ -1,4 +1,4 @@
-use super::{refs::Refs, NodePtr};
+use super::{NodePtr, refs::Refs};
 use crate::Variant;
 use alloc::vec::Vec;
 use core::fmt::Debug;
