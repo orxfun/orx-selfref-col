@@ -60,6 +60,11 @@ where
 }
 
 impl<const N: usize, V: Variant> RefsArray<N, V> {
+    /// Returns the node pointers as a slice.
+    pub fn as_slice(&self) -> &[Option<NodePtr<V>>] {
+        self.0.as_slice()
+    }
+
     /// Returns the node pointer at the `ref_idx` position of the references array.
     pub fn get(&self, ref_idx: usize) -> Option<&NodePtr<V>> {
         self.0[ref_idx].as_ref()
