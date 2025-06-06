@@ -64,6 +64,11 @@ impl<V: Variant> RefsVec<V> {
         self.0.len()
     }
 
+    /// Returns the node pointers as a slice.
+    pub fn as_slice(&self) -> &[NodePtr<V>] {
+        self.0.as_slice()
+    }
+
     /// Returns true if the number of references is zero.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()

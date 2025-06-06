@@ -107,6 +107,14 @@ impl<const N: usize, V: Variant> RefsArrayLeftMost<N, V> {
         }
     }
 
+    /// Returns the optional node pointers as a slice such that:
+    /// * length of the slice is equal to `self.len()`,
+    /// * all elements of the slice are of `Some` variant, and hence,
+    /// * can be safely unwrapped to access the node pointer.
+    pub fn as_slice(&self) -> &[Option<NodePtr<V>>] {
+        &self.array[..self.len]
+    }
+
     /// Creates an iterator over node pointers of the references collection.
     pub fn iter(&self) -> ArrayLeftMostPtrIter<V> {
         let slice = &self.array[..self.len];
