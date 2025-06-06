@@ -6,6 +6,10 @@ pub struct NodePtr<V: Variant> {
     ptr: *mut Node<V>,
 }
 
+unsafe impl<V: Variant> Send for NodePtr<V> where V::Item: Send {}
+
+unsafe impl<V: Variant> Sync for NodePtr<V> where V::Item: Sync {}
+
 impl<V: Variant> PartialEq for NodePtr<V> {
     fn eq(&self, other: &Self) -> bool {
         self.ptr == other.ptr
