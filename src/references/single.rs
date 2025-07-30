@@ -39,8 +39,7 @@ impl<V: Variant> Refs for RefsSingle<V> {
     fn remove_at(&mut self, ref_idx: usize) {
         assert_eq!(
             ref_idx, 0,
-            "Reference idx {} is out of bounds for RefsSingle.",
-            ref_idx
+            "Reference idx {ref_idx} is out of bounds for RefsSingle.",
         );
         self.clear();
     }
