@@ -80,12 +80,12 @@ impl<V: Variant> RefsVec<V> {
     }
 
     /// Creates an iterator over node pointers of the references collection.
-    pub fn iter(&self) -> core::slice::Iter<NodePtr<V>> {
+    pub fn iter(&self) -> core::slice::Iter<'_, NodePtr<V>> {
         self.0.iter()
     }
 
     /// Creates a mutable iterator over node pointers of the references collection.
-    pub fn iter_mut(&mut self) -> core::slice::IterMut<NodePtr<V>> {
+    pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, NodePtr<V>> {
         self.0.iter_mut()
     }
 
