@@ -1,5 +1,5 @@
 /// Memory state of a self referential collection.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
 pub struct MemoryState {
     pub(crate) id: usize,
 }
