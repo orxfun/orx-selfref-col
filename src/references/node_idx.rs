@@ -5,7 +5,6 @@ use orx_pinned_vec::PinnedVec;
 
 /// A node index providing safe and constant time access to elements
 /// of the self referential collection.
-#[derive(Copy)]
 pub struct NodeIdx<V: Variant> {
     ptr: *mut Node<V>,
     state: MemoryState,
@@ -18,12 +17,12 @@ impl<V: Variant> core::hash::Hash for NodeIdx<V> {
     }
 }
 
+// Only the pointer is copied, so "V" does not need to be copy itself.
+impl<V: Variant> Copy for NodeIdx<V> {}
+
 impl<V: Variant> Clone for NodeIdx<V> {
     fn clone(&self) -> Self {
-        Self {
-            ptr: self.ptr,
-            state: self.state,
-        }
+        *self
     }
 }
 
