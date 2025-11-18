@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/orxfun/orx-selfref-col/"
 keywords = ["self-referential", "list", "tree", "recursive", "pinned"]
 categories = ["data-structures", "rust-patterns", "no-std"]
+rust-version = "1.88"
 
 [dependencies]
 orx-pseudo-default = { version = "2.1.0", default-features = false }
