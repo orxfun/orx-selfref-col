@@ -3,6 +3,7 @@
 [![orx-selfref-col crate](https://img.shields.io/crates/v/orx-selfref-col.svg)](https://crates.io/crates/orx-selfref-col)
 [![orx-selfref-col crate](https://img.shields.io/crates/d/orx-selfref-col.svg)](https://crates.io/crates/orx-selfref-col)
 [![orx-selfref-col documentation](https://docs.rs/orx-selfref-col/badge.svg)](https://docs.rs/orx-selfref-col)
+[![MSRV](https://img.shields.io/badge/MSRV-1.88.0-blue)](https://releases.rs/docs/1.88.0/)
 
 `SelfRefCol` is a core data structure to conveniently build safe and efficient self referential collections, such as linked lists and trees.
 
