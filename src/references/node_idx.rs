@@ -11,6 +11,13 @@ pub struct NodeIdx<V: Variant> {
     state: MemoryState,
 }
 
+impl<V: Variant> core::hash::Hash for NodeIdx<V> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.ptr.hash(state);
+        self.state.hash(state);
+    }
+}
+
 impl<V: Variant> Clone for NodeIdx<V> {
     fn clone(&self) -> Self {
         Self {

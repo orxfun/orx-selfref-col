@@ -1,4 +1,7 @@
-use std::marker::PhantomData;
+use std::{
+    hash::{DefaultHasher, Hash, Hasher},
+    marker::PhantomData,
+};
 
 use orx_selfref_col::{
     MemoryPolicy, MemoryReclaimNever, Node, NodeIdx, RefsNone, RefsSingle, SelfRefCol, Variant,
@@ -35,6 +38,12 @@ where
     NodeIdx::new(col.memory_state(), &idx)
 }
 
+fn hash_single<H: Hash>(val: H) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    val.hash(&mut hasher);
+    hasher.finish()
+}
+
 #[test]
 fn clone() {
     let mut col: Col<String> = SelfRefCol::new();
@@ -48,4 +57,17 @@ fn clone() {
 
     assert_eq!(idx1, cloned);
     assert_ne!(idx2, cloned);
+}
+
+#[test]
+fn hash() {
+    let mut col: Col<String> = SelfRefCol::new();
+
+    let idx1 = push_front(&mut col, 0.to_string());
+    let idx2 = push_front(&mut col, 1.to_string());
+
+    let idx1_hash = hash_single(idx1);
+    let idx2_hash = hash_single(idx2);
+
+    assert_ne!(idx1_hash, idx2_hash);
 }
