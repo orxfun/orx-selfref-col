@@ -85,13 +85,13 @@ where
     let mut vec = vec![];
 
     if !col.is_empty() {
-        let [front, _] = front_back(&col);
+        let [front, _] = front_back(col);
         vec.push(front.data().unwrap().clone());
 
         let mut current = front;
 
         while let Some(next) = current.next().get() {
-            let node = col.node(&next);
+            let node = col.node(next);
             vec.push(node.data().unwrap().clone());
             current = node;
         }
@@ -108,13 +108,13 @@ where
     let mut vec = vec![];
 
     if !col.is_empty() {
-        let [_, back] = front_back(&col);
+        let [_, back] = front_back(col);
         vec.push(back.data().unwrap().clone());
 
         let mut current = back;
 
         while let Some(prev) = current.prev().get() {
-            let node = col.node(&prev);
+            let node = col.node(prev);
             vec.push(node.data().unwrap().clone());
             current = node;
         }
@@ -143,8 +143,8 @@ where
     M: MemoryPolicy<Doubly<String>>,
 {
     [
-        col.node(&col.ends().get(0).unwrap()),
-        col.node(&col.ends().get(1).unwrap()),
+        col.node(col.ends().get(0).unwrap()),
+        col.node(col.ends().get(1).unwrap()),
     ]
 }
 
@@ -266,12 +266,12 @@ where
                 };
 
                 match prev {
-                    Some(ref prev) => col.node_mut(&prev).next_mut().set(next.clone()),
+                    Some(ref prev) => col.node_mut(prev).next_mut().set(next.clone()),
                     None => col.ends_mut().set(0, next.clone()),
                 }
 
                 match next {
-                    Some(ref next) => col.node_mut(&next).prev_mut().set(prev.clone()),
+                    Some(ref next) => col.node_mut(next).prev_mut().set(prev.clone()),
                     None => col.ends_mut().set(1, prev),
                 }
 

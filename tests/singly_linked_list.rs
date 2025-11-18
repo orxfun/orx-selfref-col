@@ -91,7 +91,7 @@ fn front<M>(col: &Col<String, M>) -> &Node<Singly<String>>
 where
     M: MemoryPolicy<Singly<String>>,
 {
-    col.node(&col.ends().get().unwrap())
+    col.node(col.ends().get().unwrap())
 }
 
 fn forward<M>(col: &Col<String, M>) -> Vec<String>
@@ -101,13 +101,13 @@ where
     let mut vec = vec![];
 
     if !col.is_empty() {
-        let front = front(&col);
+        let front = front(col);
         vec.push(front.data().unwrap().clone());
 
         let mut current = front;
 
         while let Some(next) = current.next().get() {
-            let node = col.node(&next);
+            let node = col.node(next);
             vec.push(node.data().unwrap().clone());
             current = node;
         }
@@ -173,13 +173,7 @@ fn reorganize_old(col: &mut Col<String, PolicyNever>) {
 }
 
 fn next_occupied_old(col: &Col<String, PolicyNever>, start_position: usize) -> Option<usize> {
-    for i in start_position..col.nodes().len() {
-        if col.nodes()[i].is_active() {
-            return Some(i);
-        }
-    }
-
-    None
+    (start_position..col.nodes().len()).find(|&i| col.nodes()[i].is_active())
 }
 
 #[test]
@@ -585,10 +579,10 @@ fn node_ref_validation_never_reclaim() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
 
-        let node1 = col.node(&nodes[2].next().get().unwrap());
+        let node1 = col.node(nodes[2].next().get().unwrap());
         assert_eq!(node1 as *const Node<Singly<String>>, nodes[1]);
 
-        let node0 = col.node(&nodes[1].next().get().unwrap());
+        let node0 = col.node(nodes[1].next().get().unwrap());
         assert_eq!(node0 as *const Node<Singly<String>>, nodes[0]);
 
         assert!(nodes[0].next().get().is_none());
@@ -610,7 +604,7 @@ fn node_ref_validation_never_reclaim() {
         assert_eq!(nodes[0].data(), Some(&0.to_string()));
         assert_eq!(nodes[1].data(), Some(&1.to_string()));
 
-        let node0 = col.node(&nodes[1].next().get().unwrap());
+        let node0 = col.node(nodes[1].next().get().unwrap());
         assert_eq!(node0 as *const Node<Singly<String>>, nodes[0]);
 
         assert!(nodes[0].next().get().is_none());
@@ -664,13 +658,13 @@ fn node_ref_validation_threshold_reclaim() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
 
-        let node2 = col.node(&nodes[3].next().get().unwrap());
+        let node2 = col.node(nodes[3].next().get().unwrap());
         assert_eq!(node2 as *const Node<Singly<String>>, nodes[2]);
 
-        let node1 = col.node(&nodes[2].next().get().unwrap());
+        let node1 = col.node(nodes[2].next().get().unwrap());
         assert_eq!(node1 as *const Node<Singly<String>>, nodes[1]);
 
-        let node0 = col.node(&nodes[1].next().get().unwrap());
+        let node0 = col.node(nodes[1].next().get().unwrap());
         assert_eq!(node0 as *const Node<Singly<String>>, nodes[0]);
 
         assert!(nodes[0].next().get().is_none());
@@ -690,13 +684,13 @@ fn node_ref_validation_threshold_reclaim() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
 
-        let node2 = col.node(&nodes[3].next().get().unwrap());
+        let node2 = col.node(nodes[3].next().get().unwrap());
         assert_eq!(node2 as *const Node<Singly<String>>, nodes[2]);
 
-        let node1 = col.node(&nodes[2].next().get().unwrap());
+        let node1 = col.node(nodes[2].next().get().unwrap());
         assert_eq!(node1 as *const Node<Singly<String>>, nodes[1]);
 
-        let node0 = col.node(&nodes[1].next().get().unwrap());
+        let node0 = col.node(nodes[1].next().get().unwrap());
         assert_eq!(node0 as *const Node<Singly<String>>, nodes[0]);
 
         assert!(nodes[0].next().get().is_none());
@@ -723,13 +717,13 @@ fn node_ref_validation_threshold_reclaim() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
 
-        let node2 = col.node(&nodes[3].next().get().unwrap());
+        let node2 = col.node(nodes[3].next().get().unwrap());
         assert_eq!(node2 as *const Node<Singly<String>>, nodes[2]);
 
-        let node1 = col.node(&nodes[2].next().get().unwrap());
+        let node1 = col.node(nodes[2].next().get().unwrap());
         assert_eq!(node1 as *const Node<Singly<String>>, nodes[1]);
 
-        let node0 = col.node(&nodes[1].next().get().unwrap());
+        let node0 = col.node(nodes[1].next().get().unwrap());
         assert_eq!(node0 as *const Node<Singly<String>>, nodes[0]);
 
         assert!(nodes[0].next().get().is_none());
