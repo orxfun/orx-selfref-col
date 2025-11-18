@@ -571,7 +571,7 @@ fn node_ref_validation_never_reclaim() {
 
     assert_eq!(forward(&col), to_str(&[2, 1, 0]));
 
-    let refs = || [ref0.clone(), ref1.clone(), ref2.clone()];
+    let refs = || [ref0, ref1, ref2];
 
     {
         let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
@@ -648,7 +648,7 @@ fn node_ref_validation_threshold_reclaim() {
     let ref3 = push_front(&mut col, 3.to_string());
     push_gap(&mut col);
 
-    let refs = || [ref0.clone(), ref1.clone(), ref2.clone(), ref3.clone()];
+    let refs = || [ref0, ref1, ref2, ref3];
 
     assert_eq!(forward(&col), to_str(&[3, 2, 1, 0]));
 
