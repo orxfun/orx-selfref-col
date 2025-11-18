@@ -53,7 +53,7 @@ fn clone() {
 
     assert_ne!(idx1, idx2);
 
-    let cloned = idx1.clone();
+    let cloned = idx1;
 
     assert_eq!(idx1, cloned);
     assert_ne!(idx2, cloned);
