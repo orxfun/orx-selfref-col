@@ -12,7 +12,7 @@ pub struct NodePtr<V: Variant> {
 // can be verified by the `is_valid_for` method.
 unsafe impl<V: Variant> Send for NodePtr<V> where V::Item: Send {}
 
-// Despite holding pointer to a Node, `NodePtr` implements `Send` since it does not provide access
+// Despite holding pointer to a Node, `NodePtr` implements `Sync` since it does not provide access
 // to the pointer with the safe api. Unsafe api can be used to access the node. Safety of such access
 // can be verified by the `is_valid_for` method.
 unsafe impl<V: Variant> Sync for NodePtr<V> where V::Item: Sync {}
