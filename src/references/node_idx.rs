@@ -141,4 +141,15 @@ where
             && collection.nodes().contains_ptr(self.ptr)
             && unsafe { &*self.ptr }.is_active()
     }
+
+    /// Returns a reference to the node that this `NodeIdx` corresponds to;
+    /// returns None if the index is invalid.
+    #[inline(always)]
+    pub fn node<M, P>(self, collection: &SelfRefCol<V, M, P>) -> Option<&Node<V>>
+    where
+        M: MemoryPolicy<V>,
+        P: PinnedVec<Node<V>>,
+    {
+        collection.node_from_idx(&self)
+    }
 }
