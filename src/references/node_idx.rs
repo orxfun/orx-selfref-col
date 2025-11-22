@@ -72,7 +72,7 @@ where
 
     /// Checks whether or not the `state` of the index matches that of this index.
     #[inline(always)]
-    pub fn is_in_state(&self, state: MemoryState) -> bool {
+    pub fn is_in_state(self, state: MemoryState) -> bool {
         self.state == state
     }
 
@@ -85,7 +85,7 @@ where
     /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
     /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
-    pub(crate) unsafe fn ptr(&self) -> *const Node<V> {
+    pub(crate) unsafe fn ptr(self) -> *const Node<V> {
         self.ptr
     }
 
@@ -98,7 +98,7 @@ where
     /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
     /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
-    pub(crate) unsafe fn ptr_mut(&self) -> *mut Node<V> {
+    pub(crate) unsafe fn ptr_mut(self) -> *mut Node<V> {
         self.ptr
     }
 
@@ -112,13 +112,13 @@ where
     /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
     /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
-    pub unsafe fn get_ptr(&self, collection_state: MemoryState) -> Option<*mut Node<V>> {
+    pub unsafe fn get_ptr(self, collection_state: MemoryState) -> Option<*mut Node<V>> {
         self.state.eq(&collection_state).then_some(self.ptr)
     }
 
     /// Converts the node index into a node pointer.
     #[inline(always)]
-    pub fn node_ptr(&self) -> NodePtr<V> {
+    pub fn node_ptr(self) -> NodePtr<V> {
         NodePtr::new(self.ptr)
     }
 
@@ -132,7 +132,7 @@ where
     /// It is safe to use the unsafe methods of `NodeIdx` if `is_valid_for(col)`
     /// returns true where `col` is the collection that the index is created from.
     #[inline(always)]
-    pub fn is_valid_for<M, P>(&self, collection: &SelfRefCol<V, M, P>) -> bool
+    pub fn is_valid_for<M, P>(self, collection: &SelfRefCol<V, M, P>) -> bool
     where
         M: MemoryPolicy<V>,
         P: PinnedVec<Node<V>>,
