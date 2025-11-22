@@ -9,7 +9,7 @@ where
 
 impl<V: Variant> Clone for RefsSingle<V> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
 

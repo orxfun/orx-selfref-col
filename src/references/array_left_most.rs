@@ -23,7 +23,7 @@ where
 impl<const N: usize, V: Variant> Clone for RefsArrayLeftMost<N, V> {
     fn clone(&self) -> Self {
         Self {
-            array: self.array.clone(),
+            array: self.array,
             len: self.len,
         }
     }
@@ -146,7 +146,7 @@ impl<const N: usize, V: Variant> RefsArrayLeftMost<N, V> {
     /// Inserts the reference with the given `node_ptr` to the given `position` of the references collection.
     pub fn insert(&mut self, position: usize, node_ptr: NodePtr<V>) {
         for q in (position..self.len).rev() {
-            self.array[q + 1] = self.array[q].clone();
+            self.array[q + 1] = self.array[q];
         }
         self.array[position] = Some(node_ptr);
         self.len += 1;

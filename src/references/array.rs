@@ -9,7 +9,7 @@ where
 
 impl<const N: usize, V: Variant> Clone for RefsArray<N, V> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
 
