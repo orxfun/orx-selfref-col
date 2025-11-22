@@ -76,13 +76,29 @@ where
         self.state == state
     }
 
+    /// Returns the const raw pointer to the node.
+    ///
+    /// # SAFETY
+    ///
+    /// This method is unsafe as `NodeIdx` implements `Send` and `Sync`.
+    ///
+    /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
+    /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
-    pub(crate) fn ptr(&self) -> *const Node<V> {
+    pub(crate) unsafe fn ptr(&self) -> *const Node<V> {
         self.ptr
     }
 
+    /// Returns the mut raw pointer to the node.
+    ///
+    /// # SAFETY
+    ///
+    /// This method is unsafe as `NodeIdx` implements `Send` and `Sync`.
+    ///
+    /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
+    /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
-    pub(crate) fn ptr_mut(&self) -> *mut Node<V> {
+    pub(crate) unsafe fn ptr_mut(&self) -> *mut Node<V> {
         self.ptr
     }
 
