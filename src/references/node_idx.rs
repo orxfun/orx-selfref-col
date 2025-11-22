@@ -26,6 +26,8 @@ impl<V: Variant> Clone for NodeIdx<V> {
     }
 }
 
+unsafe impl<V: Variant> Send for NodeIdx<V> {}
+
 impl<V: Variant> Debug for NodeIdx<V> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("NodeIdx")
