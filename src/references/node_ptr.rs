@@ -38,13 +38,29 @@ impl<V: Variant> NodePtr<V> {
         }
     }
 
-    /// Returns the const raw pointer.
+    /// Returns the const raw pointer to the node.
+    ///
+    /// # SAFETY
+    ///
+    /// This method is unsafe as `NodePtr` implements `Send` and `Sync`.
+    ///
+    /// It is safe to call this method when we can validate that the collection
+    /// owning the node is alive with the same memory state when the node pointer
+    /// was created.
     #[inline(always)]
-    pub fn ptr(&self) -> *const Node<V> {
+    pub unsafe fn ptr(&self) -> *const Node<V> {
         self.ptr
     }
 
-    /// Returns the mutable raw pointer.
+    /// Returns the mutable raw pointer to the node.
+    ///
+    /// # SAFETY
+    ///
+    /// This method is unsafe as `NodePtr` implements `Send` and `Sync`.
+    ///
+    /// It is safe to call this method when we can validate that the collection
+    /// owning the node is alive with the same memory state when the node pointer
+    /// was created.
     #[inline(always)]
     pub fn ptr_mut(&self) -> *mut Node<V> {
         self.ptr
