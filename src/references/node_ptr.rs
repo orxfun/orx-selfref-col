@@ -31,9 +31,11 @@ impl<V: Variant> Debug for NodePtr<V> {
     }
 }
 
+impl<V: Variant> Copy for NodePtr<V> {}
+
 impl<V: Variant> Clone for NodePtr<V> {
     fn clone(&self) -> Self {
-        Self { ptr: self.ptr }
+        *self
     }
 }
 
