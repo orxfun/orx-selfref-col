@@ -776,6 +776,8 @@ fn send_node_idx() {
                 let idx: NodeIdx<Doubly<String>> = indices[i];
                 assert!(idx.is_in_state(state));
                 assert!(idx.is_valid_for(col));
+                let value = idx.node(col).and_then(|n| n.data().cloned());
+                assert_eq!(value, Some(i.to_string()));
             });
         }
     })
