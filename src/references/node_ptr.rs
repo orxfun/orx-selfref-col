@@ -58,7 +58,7 @@ impl<V: Variant> NodePtr<V> {
     /// It is safe to use the unsafe methods of `NodePtr` if `is_valid_for(col)`
     /// returns true where `col` is the collection that the pointer is created from.
     #[inline(always)]
-    pub fn is_valid_for<M, P>(&self, collection: &SelfRefCol<V, M, P>) -> bool
+    pub fn is_valid_for<M, P>(self, collection: &SelfRefCol<V, M, P>) -> bool
     where
         M: MemoryPolicy<V>,
         P: PinnedVec<Node<V>>,
@@ -75,7 +75,7 @@ impl<V: Variant> NodePtr<V> {
     /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
     /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
-    pub unsafe fn ptr(&self) -> *const Node<V> {
+    pub unsafe fn ptr(self) -> *const Node<V> {
         self.ptr
     }
 
@@ -88,7 +88,7 @@ impl<V: Variant> NodePtr<V> {
     /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
     /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
-    pub unsafe fn ptr_mut(&self) -> *mut Node<V> {
+    pub unsafe fn ptr_mut(self) -> *mut Node<V> {
         self.ptr
     }
 
@@ -99,7 +99,7 @@ impl<V: Variant> NodePtr<V> {
     /// It is to directly access the underlying node if we know that `is_valid_for(col)` would
     /// return `true` where `col` is the collection that this pointer is created from.
     #[inline]
-    pub unsafe fn node(&self) -> &Node<V> {
+    pub unsafe fn node<'a>(self) -> &'a Node<V> {
         unsafe { &*self.ptr }
     }
 
@@ -111,7 +111,7 @@ impl<V: Variant> NodePtr<V> {
     /// return `true` where `col` is the collection that this pointer is created from.
     #[inline]
     #[allow(clippy::mut_from_ref)]
-    pub unsafe fn node_mut(&self) -> &mut Node<V> {
+    pub unsafe fn node_mut<'a>(self) -> &'a mut Node<V> {
         unsafe { &mut *self.ptr }
     }
 }
