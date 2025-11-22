@@ -26,7 +26,9 @@ impl<V: Variant> Clone for NodeIdx<V> {
     }
 }
 
-unsafe impl<V: Variant> Send for NodeIdx<V> {}
+unsafe impl<V: Variant> Send for NodeIdx<V> where V::Item: Send {}
+
+unsafe impl<V: Variant> Sync for NodeIdx<V> where V::Item: Sync {}
 
 impl<V: Variant> Debug for NodeIdx<V> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
