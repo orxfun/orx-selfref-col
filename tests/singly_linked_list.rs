@@ -574,7 +574,7 @@ fn node_ref_validation_never_reclaim() {
     let refs = || [ref0, ref1, ref2];
 
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
         for (i, node) in nodes.iter().enumerate() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
@@ -596,7 +596,7 @@ fn node_ref_validation_never_reclaim() {
     assert_eq!(forward(&col), to_str(&[1, 0]));
 
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
 
         assert_eq!(nodes[2].data(), None);
         assert!(nodes[2].next().get().is_none());
@@ -618,7 +618,7 @@ fn node_ref_validation_never_reclaim() {
     assert_eq!(forward(&col), to_str(&[0]));
 
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
 
         assert_eq!(nodes[2].data(), None);
         assert!(nodes[2].next().get().is_none());
@@ -653,7 +653,7 @@ fn node_ref_validation_threshold_reclaim() {
     assert_eq!(forward(&col), to_str(&[3, 2, 1, 0]));
 
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
         for (i, node) in nodes.iter().enumerate() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
@@ -679,7 +679,7 @@ fn node_ref_validation_threshold_reclaim() {
     assert_eq!(col.nodes().len(), 4);
     assert_eq!(col.len(), 4);
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
         for (i, node) in nodes.iter().enumerate() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
@@ -712,7 +712,7 @@ fn node_ref_validation_threshold_reclaim() {
     assert_eq!(col.nodes().len(), 9);
     assert_eq!(col.len(), 7);
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
         for (i, node) in nodes.iter().enumerate() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
@@ -739,7 +739,7 @@ fn node_ref_validation_threshold_reclaim() {
     assert_eq!(col.len(), 6); // reorganized and moved => state changed
 
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r));
+        let nodes = refs().map(|r| col.node_from_idx(r));
         let all_invalid = nodes.iter().all(|x| x.is_none());
         assert!(all_invalid);
     }
