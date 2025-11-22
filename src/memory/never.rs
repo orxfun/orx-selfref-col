@@ -12,7 +12,7 @@ pub struct MemoryReclaimNever;
 
 impl<V: Variant> MemoryPolicy<V> for MemoryReclaimNever {
     #[inline(always)]
-    fn reclaim_closed_nodes<P>(_col: &mut CoreCol<V, P>, _closed_node_ptr: &NodePtr<V>) -> bool
+    fn reclaim_closed_nodes<P>(_col: &mut CoreCol<V, P>, _closed_node_ptr: NodePtr<V>) -> bool
     where
         P: PinnedVec<Node<V>>,
     {

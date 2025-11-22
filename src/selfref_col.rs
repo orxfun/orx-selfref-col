@@ -104,7 +104,7 @@ where
 
     /// Closes the node with the given `node_ptr`, returns its taken out value,
     /// and reclaims closed nodes if necessary.
-    pub fn close_and_reclaim(&mut self, node_ptr: &NodePtr<V>) -> V::Item {
+    pub fn close_and_reclaim(&mut self, node_ptr: NodePtr<V>) -> V::Item {
         let data = self.core.close(node_ptr);
 
         let state_changed = M::reclaim_closed_nodes(self, node_ptr);
@@ -117,7 +117,7 @@ where
     /// reclaims closed nodes if necessary.
     ///
     /// Returns whether the memory state changed.
-    pub fn reclaim_from_closed_node(&mut self, node_ptr: &NodePtr<V>) -> bool {
+    pub fn reclaim_from_closed_node(&mut self, node_ptr: NodePtr<V>) -> bool {
         let state_changed = M::reclaim_closed_nodes(self, node_ptr);
         self.update_state(state_changed);
         state_changed

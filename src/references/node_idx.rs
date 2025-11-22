@@ -154,18 +154,4 @@ where
     {
         collection.node_from_idx(self)
     }
-
-    /// Returns a reference to the node that this `NodeIdx` corresponds to;
-    /// returns None if the index is invalid.
-    ///
-    /// See [`Self::is_valid_for`] for validity conditions.
-    #[inline(always)]
-    pub unsafe fn node_unchecked<M, P>(self, collection: &SelfRefCol<V, M, P>) -> &Node<V>
-    where
-        M: MemoryPolicy<V>,
-        P: PinnedVec<Node<V>>,
-    {
-        // collection.node_from_idx(&self)
-        todo!()
-    }
 }
