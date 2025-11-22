@@ -9,7 +9,7 @@ where
 
 impl<const N: usize, V: Variant> Clone for RefsArray<N, V> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
 
@@ -46,7 +46,7 @@ where
     #[inline(always)]
     fn remove(&mut self, ptr: usize) -> Option<usize> {
         let x = self.0.iter().enumerate().find(|x| match x.1 {
-            Some(x) => x.ptr() as usize == ptr,
+            Some(x) => unsafe { x.ptr() as usize == ptr },
             None => false,
         });
         match x {
@@ -66,8 +66,8 @@ impl<const N: usize, V: Variant> RefsArray<N, V> {
     }
 
     /// Returns the node pointer at the `ref_idx` position of the references array.
-    pub fn get(&self, ref_idx: usize) -> Option<&NodePtr<V>> {
-        self.0[ref_idx].as_ref()
+    pub fn get(&self, ref_idx: usize) -> Option<NodePtr<V>> {
+        self.0[ref_idx]
     }
 
     // mut

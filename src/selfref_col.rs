@@ -1,6 +1,5 @@
-use crate::{
-    CoreCol, MemoryPolicy, MemoryState, NodeIdx, NodeIdxError, NodePtr, Variant, node::Node,
-};
+use crate::node::Node;
+use crate::{CoreCol, MemoryPolicy, MemoryState, NodeIdx, NodeIdxError, NodePtr, Variant};
 use core::ops::{Deref, DerefMut};
 use orx_pinned_vec::PinnedVec;
 
@@ -105,7 +104,7 @@ where
 
     /// Closes the node with the given `node_ptr`, returns its taken out value,
     /// and reclaims closed nodes if necessary.
-    pub fn close_and_reclaim(&mut self, node_ptr: &NodePtr<V>) -> V::Item {
+    pub fn close_and_reclaim(&mut self, node_ptr: NodePtr<V>) -> V::Item {
         let data = self.core.close(node_ptr);
 
         let state_changed = M::reclaim_closed_nodes(self, node_ptr);
@@ -118,7 +117,7 @@ where
     /// reclaims closed nodes if necessary.
     ///
     /// Returns whether the memory state changed.
-    pub fn reclaim_from_closed_node(&mut self, node_ptr: &NodePtr<V>) -> bool {
+    pub fn reclaim_from_closed_node(&mut self, node_ptr: NodePtr<V>) -> bool {
         let state_changed = M::reclaim_closed_nodes(self, node_ptr);
         self.update_state(state_changed);
         state_changed
@@ -135,8 +134,10 @@ where
     /// Returns a reference to the node with the given `NodeIdx`;
     /// returns None if the index is invalid.
     #[inline(always)]
-    pub fn node_from_idx(&self, idx: &NodeIdx<V>) -> Option<&Node<V>> {
-        match idx.is_in_state(self.state) && self.nodes().contains_ptr(idx.ptr()) {
+    pub fn node_from_idx(&self, idx: NodeIdx<V>) -> Option<&Node<V>> {
+        // SAFETY: it is always safe to call PinnedVec::contains_ptr
+        match idx.is_in_state(self.state) && self.nodes().contains_ptr(unsafe { idx.ptr() }) {
+            // SAFETY: Since both conditions are satisfied, it is safe to dereference the node.
             true => Some(unsafe { &*idx.ptr() }),
             false => None,
         }
@@ -145,9 +146,11 @@ where
     /// Tries to create a reference to the node with the given `NodeIdx`;
     /// returns the error if the index is invalid.
     #[inline(always)]
-    pub fn try_node_from_idx(&self, idx: &NodeIdx<V>) -> Result<&Node<V>, NodeIdxError> {
-        match self.nodes().contains_ptr(idx.ptr()) {
+    pub fn try_node_from_idx(&self, idx: NodeIdx<V>) -> Result<&Node<V>, NodeIdxError> {
+        // SAFETY: it is always safe to call PinnedVec::contains_ptr
+        match self.nodes().contains_ptr(unsafe { idx.ptr() }) {
             true => match idx.is_in_state(self.state) {
+                // SAFETY: Since both conditions are satisfied, it is safe to dereference the node.
                 true => Ok(unsafe { &*idx.ptr() }),
                 false => Err(NodeIdxError::ReorganizedCollection),
             },
@@ -158,7 +161,7 @@ where
     /// Returns the node index error if the index is invalid.
     /// Returns None if it is valid.
     #[inline(always)]
-    pub fn node_idx_error(&self, idx: &NodeIdx<V>) -> Option<NodeIdxError> {
+    pub fn node_idx_error(&self, idx: NodeIdx<V>) -> Option<NodeIdxError> {
         match self.try_node_from_idx(idx) {
             Ok(node) => match node.is_active() {
                 true => None,
@@ -171,11 +174,13 @@ where
     /// Tries to get a valid pointer to the node with the given `NodeIdx`;
     /// returns the error if the index is invalid.
     #[inline(always)]
-    pub fn try_get_ptr(&self, idx: &NodeIdx<V>) -> Result<NodePtr<V>, NodeIdxError> {
-        match self.nodes().contains_ptr(idx.ptr()) {
+    pub fn try_get_ptr(&self, idx: NodeIdx<V>) -> Result<NodePtr<V>, NodeIdxError> {
+        // SAFETY: it is always safe to call PinnedVec::contains_ptr
+        match self.nodes().contains_ptr(unsafe { idx.ptr() }) {
             true => match idx.is_in_state(self.state) {
                 true => {
-                    let ptr = idx.ptr();
+                    // SAFETY: Since both conditions are satisfied, it is safe to dereference the node.
+                    let ptr = unsafe { idx.ptr() };
                     match unsafe { &*ptr }.is_active() {
                         true => Ok(NodePtr::new(ptr)),
                         false => Err(NodeIdxError::RemovedNode),
@@ -190,11 +195,13 @@ where
     /// Tries to get a valid pointer to the node with the given `NodeIdx`;
     /// returns None if the index is invalid.
     #[inline(always)]
-    pub fn get_ptr(&self, idx: &NodeIdx<V>) -> Option<NodePtr<V>> {
-        match self.nodes().contains_ptr(idx.ptr()) {
+    pub fn get_ptr(&self, idx: NodeIdx<V>) -> Option<NodePtr<V>> {
+        // SAFETY: it is always safe to call PinnedVec::contains_ptr
+        match self.nodes().contains_ptr(unsafe { idx.ptr() }) {
             true => match idx.is_in_state(self.state) {
                 true => {
-                    let ptr = idx.ptr();
+                    // SAFETY: Since both conditions are satisfied, it is safe to dereference the node.
+                    let ptr = unsafe { idx.ptr() };
                     match unsafe { &*ptr }.is_active() {
                         true => Some(NodePtr::new(ptr)),
                         false => None,
@@ -217,8 +224,9 @@ where
     /// Returns a mutable reference to the node with the given `NodeIdx`;
     /// returns None if the index is invalid.
     #[inline(always)]
-    pub fn node_mut_from_idx(&mut self, idx: &NodeIdx<V>) -> Option<&mut Node<V>> {
-        match idx.is_in_state(self.state) && self.nodes().contains_ptr(idx.ptr()) {
+    pub fn node_mut_from_idx(&mut self, idx: NodeIdx<V>) -> Option<&mut Node<V>> {
+        // SAFETY: it is always safe to call PinnedVec::contains_ptr
+        match idx.is_in_state(self.state) && self.nodes().contains_ptr(unsafe { idx.ptr() }) {
             true => Some(unsafe { &mut *idx.ptr_mut() }),
             false => None,
         }
@@ -227,11 +235,9 @@ where
     /// Tries to create a mutable reference to the node with the given `NodeIdx`;
     /// returns the error if the index is invalid.
     #[inline(always)]
-    pub fn try_node_mut_from_idx(
-        &mut self,
-        idx: &NodeIdx<V>,
-    ) -> Result<&mut Node<V>, NodeIdxError> {
-        match self.nodes().contains_ptr(idx.ptr()) {
+    pub fn try_node_mut_from_idx(&mut self, idx: NodeIdx<V>) -> Result<&mut Node<V>, NodeIdxError> {
+        // SAFETY: it is always safe to call PinnedVec::contains_ptr
+        match self.nodes().contains_ptr(unsafe { idx.ptr() }) {
             true => match idx.is_in_state(self.state) {
                 true => Ok(unsafe { &mut *idx.ptr_mut() }),
                 false => Err(NodeIdxError::ReorganizedCollection),
@@ -243,6 +249,6 @@ where
     /// Pushes the element with the given `data` and returns its index.
     pub fn push_get_idx(&mut self, data: V::Item) -> NodeIdx<V> {
         let node_ptr = self.push(data);
-        NodeIdx::new(self.memory_state(), &node_ptr)
+        NodeIdx::new(self.memory_state(), node_ptr)
     }
 }

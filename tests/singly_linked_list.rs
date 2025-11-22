@@ -19,7 +19,7 @@ impl<T> MemoryReclaimer<Singly<T>> for OnThresholdReclaimer {
     {
         let mut nodes_moved = false;
 
-        if let Some(mut current) = col.ends().get().cloned() {
+        if let Some(mut current) = col.ends().get() {
             let mut prev = None;
 
             for vacant in 0..col.nodes().len() {
@@ -28,7 +28,7 @@ impl<T> MemoryReclaimer<Singly<T>> for OnThresholdReclaimer {
                 }
 
                 loop {
-                    let occupied = col.position_of_unchecked(&current);
+                    let occupied = col.position_of_unchecked(current);
 
                     let swapped = occupied > vacant;
 
@@ -37,7 +37,7 @@ impl<T> MemoryReclaimer<Singly<T>> for OnThresholdReclaimer {
                         swap(col, vacant, occupied, prev);
                     }
 
-                    match col.node(&current).next().get().cloned() {
+                    match col.node(current).next().get() {
                         Some(next) => {
                             prev = Some(occupied);
                             current = next;
@@ -123,25 +123,25 @@ where
 {
     let idx = col.push(value);
 
-    if let Some(old_front) = col.ends().get().cloned() {
-        col.node_mut(&idx).next_mut().set(Some(old_front));
+    if let Some(old_front) = col.ends().get() {
+        col.node_mut(idx).next_mut().set(Some(old_front));
     }
 
-    col.ends_mut().set(Some(idx.clone()));
+    col.ends_mut().set(Some(idx));
 
-    NodeIdx::new(col.memory_state(), &idx)
+    NodeIdx::new(col.memory_state(), idx)
 }
 
 fn pop_front<M>(col: &mut Col<String, M>) -> Option<String>
 where
     M: MemoryPolicy<Singly<String>>,
 {
-    col.ends().get().cloned().map(|front_idx| {
-        match col.node(&front_idx).next().get().cloned() {
+    col.ends().get().map(|front_idx| {
+        match col.node(front_idx).next().get() {
             Some(new_front) => col.ends_mut().set(Some(new_front)),
             None => col.ends_mut().clear(),
         }
-        col.close_and_reclaim(&front_idx)
+        col.close_and_reclaim(front_idx)
     })
 }
 
@@ -574,7 +574,7 @@ fn node_ref_validation_never_reclaim() {
     let refs = || [ref0, ref1, ref2];
 
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
         for (i, node) in nodes.iter().enumerate() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
@@ -596,7 +596,7 @@ fn node_ref_validation_never_reclaim() {
     assert_eq!(forward(&col), to_str(&[1, 0]));
 
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
 
         assert_eq!(nodes[2].data(), None);
         assert!(nodes[2].next().get().is_none());
@@ -618,7 +618,7 @@ fn node_ref_validation_never_reclaim() {
     assert_eq!(forward(&col), to_str(&[0]));
 
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
 
         assert_eq!(nodes[2].data(), None);
         assert!(nodes[2].next().get().is_none());
@@ -653,7 +653,7 @@ fn node_ref_validation_threshold_reclaim() {
     assert_eq!(forward(&col), to_str(&[3, 2, 1, 0]));
 
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
         for (i, node) in nodes.iter().enumerate() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
@@ -679,7 +679,7 @@ fn node_ref_validation_threshold_reclaim() {
     assert_eq!(col.nodes().len(), 4);
     assert_eq!(col.len(), 4);
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
         for (i, node) in nodes.iter().enumerate() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
@@ -712,7 +712,7 @@ fn node_ref_validation_threshold_reclaim() {
     assert_eq!(col.nodes().len(), 9);
     assert_eq!(col.len(), 7);
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r).unwrap());
+        let nodes = refs().map(|r| col.node_from_idx(r).unwrap());
         for (i, node) in nodes.iter().enumerate() {
             assert_eq!(node.data(), Some(&i.to_string()));
         }
@@ -739,7 +739,7 @@ fn node_ref_validation_threshold_reclaim() {
     assert_eq!(col.len(), 6); // reorganized and moved => state changed
 
     {
-        let nodes = refs().map(|r| col.node_from_idx(&r));
+        let nodes = refs().map(|r| col.node_from_idx(r));
         let all_invalid = nodes.iter().all(|x| x.is_none());
         assert!(all_invalid);
     }

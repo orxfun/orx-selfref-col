@@ -55,7 +55,7 @@ where
     V: Variant,
     R: MemoryReclaimer<V>,
 {
-    fn reclaim_closed_nodes<P>(col: &mut CoreCol<V, P>, _closed_node_ptr: &NodePtr<V>) -> bool
+    fn reclaim_closed_nodes<P>(col: &mut CoreCol<V, P>, _closed_node_ptr: NodePtr<V>) -> bool
     where
         P: PinnedVec<Node<V>>,
     {

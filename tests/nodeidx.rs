@@ -1,12 +1,11 @@
-use std::{
-    hash::{DefaultHasher, Hash, Hasher},
-    marker::PhantomData,
-};
-
 use orx_selfref_col::{
     MemoryPolicy, MemoryReclaimNever, Node, NodeIdx, RefsNone, RefsSingle, SelfRefCol, Variant,
 };
 use orx_split_vec::{Recursive, SplitVec};
+use std::{
+    hash::{DefaultHasher, Hash, Hasher},
+    marker::PhantomData,
+};
 
 struct Singly<T>(PhantomData<T>);
 
@@ -29,13 +28,13 @@ where
 {
     let idx = col.push(value);
 
-    if let Some(old_front) = col.ends().get().cloned() {
-        col.node_mut(&idx).next_mut().set(Some(old_front));
+    if let Some(old_front) = col.ends().get() {
+        col.node_mut(idx).next_mut().set(Some(old_front));
     }
 
-    col.ends_mut().set(Some(idx.clone()));
+    col.ends_mut().set(Some(idx));
 
-    NodeIdx::new(col.memory_state(), &idx)
+    NodeIdx::new(col.memory_state(), idx)
 }
 
 fn hash_single<H: Hash>(val: H) -> u64 {

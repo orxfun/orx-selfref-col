@@ -43,21 +43,21 @@ where
     let new_idx = col.node_ptr_at_pos(vacant);
     let old_idx = col.node_ptr_at_pos(occupied);
 
-    if let Some(prev) = col.nodes()[occupied].prev().get().cloned() {
-        col.node_mut(&prev).next_mut().set(Some(new_idx.clone()));
+    if let Some(prev) = col.nodes()[occupied].prev().get() {
+        col.node_mut(prev).next_mut().set(Some(new_idx));
     }
 
-    if let Some(next) = col.nodes()[occupied].next().get().cloned() {
-        col.node_mut(&next).prev_mut().set(Some(new_idx.clone()));
+    if let Some(next) = col.nodes()[occupied].next().get() {
+        col.node_mut(next).prev_mut().set(Some(new_idx));
     }
 
     col.move_node(vacant, occupied);
 
-    if old_idx == col.ends().get(0).cloned().expect("nonempty list") {
-        col.ends_mut().set(0, Some(new_idx.clone()));
+    if old_idx == col.ends().get(0).expect("nonempty list") {
+        col.ends_mut().set(0, Some(new_idx));
     }
 
-    if old_idx == col.ends().get(1).cloned().expect("nonempty list") {
+    if old_idx == col.ends().get(1).expect("nonempty list") {
         col.ends_mut().set(1, Some(new_idx));
     }
 }
@@ -128,14 +128,14 @@ fn front<M>(col: &Col<String, M>) -> Option<NodePtr<Doubly<String>>>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    col.ends().get(0).cloned()
+    col.ends().get(0)
 }
 
 fn back<M>(col: &Col<String, M>) -> Option<NodePtr<Doubly<String>>>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    col.ends().get(1).cloned()
+    col.ends().get(1)
 }
 
 fn front_back<M>(col: &Col<String, M>) -> [&Node<Doubly<String>>; 2]
@@ -158,12 +158,7 @@ where
         x if x < half_len => {
             let mut current = front(col).expect("non-empty list");
             for _ in 0..at {
-                current = col
-                    .node(&current)
-                    .next()
-                    .get()
-                    .cloned()
-                    .expect("must exist");
+                current = col.node(current).next().get().expect("must exist");
             }
             Some(current)
         }
@@ -171,12 +166,7 @@ where
             let mut current = back(col).expect("non-empty list");
             let num_jumps = len - at - 1;
             for _ in 0..num_jumps {
-                current = col
-                    .node(&current)
-                    .prev()
-                    .get()
-                    .cloned()
-                    .expect("must exist");
+                current = col.node(current).prev().get().expect("must exist");
             }
             Some(current)
         }
@@ -184,13 +174,14 @@ where
     }
 }
 
-fn push_first<M>(col: &mut Col<String, M>, value: String)
+fn push_first<M>(col: &mut Col<String, M>, value: String) -> NodeIdx<Doubly<String>>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    let idx = col.push(value);
-    col.ends_mut().set(0, Some(idx.clone()));
-    col.ends_mut().set(1, Some(idx));
+    let ptr = col.push(value);
+    col.ends_mut().set(0, Some(ptr));
+    col.ends_mut().set(1, Some(ptr));
+    NodeIdx::new(col.memory_state(), ptr)
 }
 
 fn push_front<M>(col: &mut Col<String, M>, value: String)
@@ -198,39 +189,40 @@ where
     M: MemoryPolicy<Doubly<String>>,
 {
     let idx = col.push(value);
-    let old_front = col.ends().get(0).cloned().unwrap();
+    let old_front = col.ends().get(0).unwrap();
 
-    col.node_mut(&idx).next_mut().set(Some(old_front.clone()));
-    col.node_mut(&old_front).prev_mut().set(Some(idx.clone()));
+    col.node_mut(idx).next_mut().set(Some(old_front));
+    col.node_mut(old_front).prev_mut().set(Some(idx));
     col.ends_mut().set(0, Some(idx));
 }
 
-fn push_back<M>(col: &mut Col<String, M>, value: String)
+fn push_back<M>(col: &mut Col<String, M>, value: String) -> NodeIdx<Doubly<String>>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    let idx = col.push(value);
-    let old_back = col.ends().get(1).cloned().unwrap();
+    let ptr = col.push(value);
+    let old_back = col.ends().get(1).unwrap();
 
-    col.node_mut(&idx).prev_mut().set(Some(old_back.clone()));
-    col.node_mut(&old_back).next_mut().set(Some(idx.clone()));
-    col.ends_mut().set(1, Some(idx));
+    col.node_mut(ptr).prev_mut().set(Some(old_back));
+    col.node_mut(old_back).next_mut().set(Some(ptr));
+    col.ends_mut().set(1, Some(ptr));
+    NodeIdx::new(col.memory_state(), ptr)
 }
 
 fn pop_front<M>(col: &mut Col<String, M>) -> Option<String>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    col.ends().get(0).cloned().map(|front_idx| {
-        match col.node(&front_idx).next().get().cloned() {
+    col.ends().get(0).map(|front_idx| {
+        match col.node(front_idx).next().get() {
             Some(new_front) => {
-                col.node_mut(&new_front).prev_mut().clear();
+                col.node_mut(new_front).prev_mut().clear();
                 col.ends_mut().set(0, Some(new_front));
             }
             None => col.ends_mut().clear(),
         }
 
-        col.close_and_reclaim(&front_idx)
+        col.close_and_reclaim(front_idx)
     })
 }
 
@@ -238,15 +230,15 @@ fn pop_back<M>(col: &mut Col<String, M>) -> Option<String>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    col.ends().get(1).cloned().map(|back_idx| {
-        match col.node(&back_idx).prev().get().cloned() {
+    col.ends().get(1).map(|back_idx| {
+        match col.node(back_idx).prev().get() {
             Some(new_back) => {
-                col.node_mut(&new_back).next_mut().clear();
+                col.node_mut(new_back).next_mut().clear();
                 col.ends_mut().set(1, Some(new_back));
             }
             None => col.ends_mut().clear(),
         }
-        col.close_and_reclaim(&back_idx)
+        col.close_and_reclaim(back_idx)
     })
 }
 
@@ -261,21 +253,21 @@ where
                 let node_idx = get_at(col, at).expect("in bounds");
 
                 let [prev, next] = {
-                    let node = col.node(&node_idx);
-                    [node.prev().get().cloned(), node.next().get().cloned()]
+                    let node = col.node(node_idx);
+                    [node.prev().get(), node.next().get()]
                 };
 
                 match prev {
-                    Some(ref prev) => col.node_mut(prev).next_mut().set(next.clone()),
-                    None => col.ends_mut().set(0, next.clone()),
+                    Some(prev) => col.node_mut(prev).next_mut().set(next),
+                    None => col.ends_mut().set(0, next),
                 }
 
                 match next {
-                    Some(ref next) => col.node_mut(next).prev_mut().set(prev.clone()),
+                    Some(next) => col.node_mut(next).prev_mut().set(prev),
                     None => col.ends_mut().set(1, prev),
                 }
 
-                Some(col.close_and_reclaim(&node_idx))
+                Some(col.close_and_reclaim(node_idx))
             }
             true => pop_back(col),
         },
@@ -756,4 +748,36 @@ fn remove_at_test() {
     assert_eq!(removed, None);
     assert_eq!(forward(&col), to_str(&[]));
     assert_eq!(nodes(&col), []);
+}
+
+#[test]
+fn send_node_idx() {
+    let mut col: Col<String, PolicyOnThreshold<2, String>> = SelfRefCol::new();
+
+    let indices = vec![
+        push_first(&mut col, 0.to_string()),
+        push_back(&mut col, 1.to_string()),
+        push_back(&mut col, 2.to_string()),
+        push_back(&mut col, 3.to_string()),
+        push_back(&mut col, 4.to_string()),
+        push_back(&mut col, 5.to_string()),
+        push_back(&mut col, 6.to_string()),
+        push_back(&mut col, 7.to_string()),
+        push_back(&mut col, 8.to_string()),
+    ];
+
+    let state = col.memory_state();
+
+    std::thread::scope(|s| {
+        let indices = indices.as_slice();
+        let col = &col;
+        for (i, idx) in indices.iter().enumerate().take(9) {
+            s.spawn(move || {
+                assert!(idx.is_in_state(state));
+                assert!(idx.is_valid_for(col));
+                let value = idx.node(col).and_then(|n| n.data().cloned());
+                assert_eq!(value, Some(i.to_string()));
+            });
+        }
+    })
 }

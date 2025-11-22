@@ -9,7 +9,7 @@ where
 
 impl<V: Variant> Clone for RefsSingle<V> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
 
@@ -48,7 +48,7 @@ impl<V: Variant> Refs for RefsSingle<V> {
     fn remove(&mut self, ptr: usize) -> Option<usize> {
         match &mut self.0 {
             None => None,
-            Some(x) => match x.ptr() as usize == ptr {
+            Some(x) => match unsafe { x.ptr() } as usize == ptr {
                 true => {
                     self.clear();
                     Some(0)
@@ -61,8 +61,8 @@ impl<V: Variant> Refs for RefsSingle<V> {
 
 impl<V: Variant> RefsSingle<V> {
     /// Returns the pointer to the referenced node.
-    pub fn get(&self) -> Option<&NodePtr<V>> {
-        self.0.as_ref()
+    pub fn get(&self) -> Option<NodePtr<V>> {
+        self.0
     }
 
     /// Sets the pointer to the referenced node with the given `node_idx`.
