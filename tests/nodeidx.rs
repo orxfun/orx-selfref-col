@@ -29,8 +29,8 @@ where
 {
     let idx = col.push(value);
 
-    if let Some(old_front) = col.ends().get().cloned() {
-        col.node_mut(&idx).next_mut().set(Some(old_front));
+    if let Some(old_front) = col.ends().get() {
+        col.node_mut(idx).next_mut().set(Some(old_front));
     }
 
     col.ends_mut().set(Some(idx.clone()));

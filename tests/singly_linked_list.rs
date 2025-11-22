@@ -19,7 +19,7 @@ impl<T> MemoryReclaimer<Singly<T>> for OnThresholdReclaimer {
     {
         let mut nodes_moved = false;
 
-        if let Some(mut current) = col.ends().get().cloned() {
+        if let Some(mut current) = col.ends().get() {
             let mut prev = None;
 
             for vacant in 0..col.nodes().len() {
@@ -28,7 +28,7 @@ impl<T> MemoryReclaimer<Singly<T>> for OnThresholdReclaimer {
                 }
 
                 loop {
-                    let occupied = col.position_of_unchecked(&current);
+                    let occupied = col.position_of_unchecked(current);
 
                     let swapped = occupied > vacant;
 
@@ -37,7 +37,7 @@ impl<T> MemoryReclaimer<Singly<T>> for OnThresholdReclaimer {
                         swap(col, vacant, occupied, prev);
                     }
 
-                    match col.node(&current).next().get().cloned() {
+                    match col.node(current).next().get() {
                         Some(next) => {
                             prev = Some(occupied);
                             current = next;
@@ -123,8 +123,8 @@ where
 {
     let idx = col.push(value);
 
-    if let Some(old_front) = col.ends().get().cloned() {
-        col.node_mut(&idx).next_mut().set(Some(old_front));
+    if let Some(old_front) = col.ends().get() {
+        col.node_mut(idx).next_mut().set(Some(old_front));
     }
 
     col.ends_mut().set(Some(idx.clone()));
@@ -136,12 +136,12 @@ fn pop_front<M>(col: &mut Col<String, M>) -> Option<String>
 where
     M: MemoryPolicy<Singly<String>>,
 {
-    col.ends().get().cloned().map(|front_idx| {
-        match col.node(&front_idx).next().get().cloned() {
+    col.ends().get().map(|front_idx| {
+        match col.node(front_idx).next().get() {
             Some(new_front) => col.ends_mut().set(Some(new_front)),
             None => col.ends_mut().clear(),
         }
-        col.close_and_reclaim(&front_idx)
+        col.close_and_reclaim(front_idx)
     })
 }
 
