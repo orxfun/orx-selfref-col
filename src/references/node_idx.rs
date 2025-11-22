@@ -99,6 +99,9 @@ where
     ///
     /// * It is created from the given `collection`.
     /// * Memory state of the `collection` has not changed since this index was created.
+    ///
+    /// It is safe to use the unsafe methods of `NodeIdx` if `is_valid_for(col)`
+    /// returns true where `col` is the collection that the index is created from.
     #[inline(always)]
     pub fn is_valid_for<M, P>(&self, collection: &SelfRefCol<V, M, P>) -> bool
     where
