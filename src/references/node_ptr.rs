@@ -7,8 +7,14 @@ pub struct NodePtr<V: Variant> {
     ptr: *mut Node<V>,
 }
 
+// Despite holding pointer to a Node, `NodePtr` implements `Send` since it does not provide access
+// to the pointer with the safe api. Unsafe api can be used to access the node. Safety of such access
+// can be verified by the `is_valid_for` method.
 unsafe impl<V: Variant> Send for NodePtr<V> where V::Item: Send {}
 
+// Despite holding pointer to a Node, `NodePtr` implements `Send` since it does not provide access
+// to the pointer with the safe api. Unsafe api can be used to access the node. Safety of such access
+// can be verified by the `is_valid_for` method.
 unsafe impl<V: Variant> Sync for NodePtr<V> where V::Item: Sync {}
 
 impl<V: Variant> PartialEq for NodePtr<V> {
