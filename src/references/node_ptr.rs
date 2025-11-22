@@ -64,8 +64,8 @@ impl<V: Variant> NodePtr<V> {
     ///
     /// This method is unsafe as `NodePtr` implements `Send` and `Sync`.
     ///
-    /// It is safe dereference the received pointer when we can validate that the collection
-    /// owning the node is alive with the same memory state when the node pointer was created.
+    /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
+    /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
     pub unsafe fn ptr(&self) -> *const Node<V> {
         self.ptr
@@ -77,8 +77,8 @@ impl<V: Variant> NodePtr<V> {
     ///
     /// This method is unsafe as `NodePtr` implements `Send` and `Sync`.
     ///
-    /// It is safe dereference the received pointer when we can validate that the collection
-    /// owning the node is alive with the same memory state when the node pointer was created.
+    /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
+    /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
     pub unsafe fn ptr_mut(&self) -> *mut Node<V> {
         self.ptr
@@ -88,11 +88,8 @@ impl<V: Variant> NodePtr<V> {
     ///
     /// # Safety
     ///
-    /// The caller must ensure that:
-    ///
-    /// * this pointer is created from a self referential collection,
-    /// * the collection is still alive, and finally,
-    /// * the memory state of the collection has not changed since the pointer was created.
+    /// It is to directly access the underlying node if we know that `is_valid_for(col)` would
+    /// return `true` where `col` is the collection that this pointer is created from.
     #[inline]
     pub unsafe fn node(&self) -> &Node<V> {
         unsafe { &*self.ptr }
@@ -102,11 +99,8 @@ impl<V: Variant> NodePtr<V> {
     ///
     /// # Safety
     ///
-    /// The caller must ensure that:
-    ///
-    /// * this pointer is created from a self referential collection,
-    /// * the collection is still alive, and finally,
-    /// * the memory state of the collection has not changed since the pointer was created.
+    /// It is to directly access the underlying node if we know that `is_valid_for(col)` would
+    /// return `true` where `col` is the collection that this pointer is created from.
     #[inline]
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn node_mut(&self) -> &mut Node<V> {
