@@ -35,7 +35,7 @@ where
 
     col.ends_mut().set(Some(idx.clone()));
 
-    NodeIdx::new(col.memory_state(), &idx)
+    NodeIdx::new(col.memory_state(), idx)
 }
 
 fn hash_single<H: Hash>(val: H) -> u64 {

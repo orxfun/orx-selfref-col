@@ -60,7 +60,7 @@ where
     /// Creates a new index for the element at the given `node_ptr`
     /// and the collection with the given `state`.
     #[inline(always)]
-    pub fn new(state: MemoryState, node_ptr: &NodePtr<V>) -> Self {
+    pub fn new(state: MemoryState, node_ptr: NodePtr<V>) -> Self {
         Self {
             // SAFETY: it is safe to create NodeIdx from any state and node-pointer,
             // since access to the node is provided only by safe methods which checks

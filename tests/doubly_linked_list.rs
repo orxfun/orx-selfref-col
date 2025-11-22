@@ -179,9 +179,9 @@ where
     M: MemoryPolicy<Doubly<String>>,
 {
     let ptr = col.push(value);
-    col.ends_mut().set(0, Some(ptr.clone()));
-    col.ends_mut().set(1, Some(ptr.clone()));
-    NodeIdx::new(col.memory_state(), &ptr)
+    col.ends_mut().set(0, Some(ptr));
+    col.ends_mut().set(1, Some(ptr));
+    NodeIdx::new(col.memory_state(), ptr)
 }
 
 fn push_front<M>(col: &mut Col<String, M>, value: String)
@@ -191,8 +191,8 @@ where
     let idx = col.push(value);
     let old_front = col.ends().get(0).unwrap();
 
-    col.node_mut(idx).next_mut().set(Some(old_front.clone()));
-    col.node_mut(old_front).prev_mut().set(Some(idx.clone()));
+    col.node_mut(idx).next_mut().set(Some(old_front));
+    col.node_mut(old_front).prev_mut().set(Some(idx));
     col.ends_mut().set(0, Some(idx));
 }
 
@@ -203,10 +203,10 @@ where
     let ptr = col.push(value);
     let old_back = col.ends().get(1).unwrap();
 
-    col.node_mut(ptr).prev_mut().set(Some(old_back.clone()));
-    col.node_mut(old_back).next_mut().set(Some(ptr.clone()));
-    col.ends_mut().set(1, Some(ptr.clone()));
-    NodeIdx::new(col.memory_state(), &ptr)
+    col.node_mut(ptr).prev_mut().set(Some(old_back));
+    col.node_mut(old_back).next_mut().set(Some(ptr));
+    col.ends_mut().set(1, Some(ptr));
+    NodeIdx::new(col.memory_state(), ptr)
 }
 
 fn pop_front<M>(col: &mut Col<String, M>) -> Option<String>

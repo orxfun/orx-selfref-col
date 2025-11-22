@@ -127,9 +127,9 @@ where
         col.node_mut(idx).next_mut().set(Some(old_front));
     }
 
-    col.ends_mut().set(Some(idx.clone()));
+    col.ends_mut().set(Some(idx));
 
-    NodeIdx::new(col.memory_state(), &idx)
+    NodeIdx::new(col.memory_state(), idx)
 }
 
 fn pop_front<M>(col: &mut Col<String, M>) -> Option<String>

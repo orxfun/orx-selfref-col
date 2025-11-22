@@ -249,6 +249,6 @@ where
     /// Pushes the element with the given `data` and returns its index.
     pub fn push_get_idx(&mut self, data: V::Item) -> NodeIdx<V> {
         let node_ptr = self.push(data);
-        NodeIdx::new(self.memory_state(), &node_ptr)
+        NodeIdx::new(self.memory_state(), node_ptr)
     }
 }
