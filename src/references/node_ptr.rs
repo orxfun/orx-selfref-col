@@ -62,7 +62,7 @@ impl<V: Variant> NodePtr<V> {
     /// owning the node is alive with the same memory state when the node pointer
     /// was created.
     #[inline(always)]
-    pub fn ptr_mut(&self) -> *mut Node<V> {
+    pub unsafe fn ptr_mut(&self) -> *mut Node<V> {
         self.ptr
     }
 

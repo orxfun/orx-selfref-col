@@ -48,7 +48,7 @@ impl<V: Variant> Refs for RefsSingle<V> {
     fn remove(&mut self, ptr: usize) -> Option<usize> {
         match &mut self.0 {
             None => None,
-            Some(x) => match x.ptr() as usize == ptr {
+            Some(x) => match unsafe { x.ptr() } as usize == ptr {
                 true => {
                     self.clear();
                     Some(0)

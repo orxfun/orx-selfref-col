@@ -47,7 +47,7 @@ impl<V: Variant> Refs for RefsVec<V> {
             .0
             .iter()
             .enumerate()
-            .find(|x| x.1.ptr() as usize == ptr);
+            .find(|x| unsafe { x.1.ptr() } as usize == ptr);
         match x {
             Some((ref_idx, _)) => {
                 self.0.remove(ref_idx);

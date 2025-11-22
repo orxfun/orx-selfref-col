@@ -184,13 +184,14 @@ where
     }
 }
 
-fn push_first<M>(col: &mut Col<String, M>, value: String)
+fn push_first<M>(col: &mut Col<String, M>, value: String) -> NodeIdx<Doubly<String>>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    let idx = col.push(value);
-    col.ends_mut().set(0, Some(idx.clone()));
-    col.ends_mut().set(1, Some(idx));
+    let ptr = col.push(value);
+    col.ends_mut().set(0, Some(ptr.clone()));
+    col.ends_mut().set(1, Some(ptr.clone()));
+    NodeIdx::new(col.memory_state(), &ptr)
 }
 
 fn push_front<M>(col: &mut Col<String, M>, value: String)
@@ -205,16 +206,17 @@ where
     col.ends_mut().set(0, Some(idx));
 }
 
-fn push_back<M>(col: &mut Col<String, M>, value: String)
+fn push_back<M>(col: &mut Col<String, M>, value: String) -> NodeIdx<Doubly<String>>
 where
     M: MemoryPolicy<Doubly<String>>,
 {
-    let idx = col.push(value);
+    let ptr = col.push(value);
     let old_back = col.ends().get(1).cloned().unwrap();
 
-    col.node_mut(&idx).prev_mut().set(Some(old_back.clone()));
-    col.node_mut(&old_back).next_mut().set(Some(idx.clone()));
-    col.ends_mut().set(1, Some(idx));
+    col.node_mut(&ptr).prev_mut().set(Some(old_back.clone()));
+    col.node_mut(&old_back).next_mut().set(Some(ptr.clone()));
+    col.ends_mut().set(1, Some(ptr.clone()));
+    NodeIdx::new(col.memory_state(), &ptr)
 }
 
 fn pop_front<M>(col: &mut Col<String, M>) -> Option<String>
@@ -756,4 +758,35 @@ fn remove_at_test() {
     assert_eq!(removed, None);
     assert_eq!(forward(&col), to_str(&[]));
     assert_eq!(nodes(&col), []);
+}
+
+#[test]
+fn send_node_idx() {
+    let mut col: Col<String, PolicyOnThreshold<2, String>> = SelfRefCol::new();
+
+    let mut indices = vec![];
+
+    indices.push(push_first(&mut col, 0.to_string()));
+    indices.push(push_back(&mut col, 1.to_string()));
+    indices.push(push_back(&mut col, 2.to_string()));
+    indices.push(push_back(&mut col, 3.to_string()));
+    indices.push(push_back(&mut col, 4.to_string()));
+    indices.push(push_back(&mut col, 5.to_string()));
+    indices.push(push_back(&mut col, 6.to_string()));
+    indices.push(push_back(&mut col, 7.to_string()));
+    indices.push(push_back(&mut col, 8.to_string()));
+
+    let state = col.memory_state();
+
+    std::thread::scope(|s| {
+        let indices = indices.as_slice();
+        let col = &col;
+        for i in 0..9 {
+            s.spawn(move || {
+                let idx: NodeIdx<Doubly<String>> = indices[i];
+                assert!(idx.is_in_state(state));
+                assert!(idx.is_valid_for(col));
+            });
+        }
+    })
 }

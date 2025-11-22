@@ -46,7 +46,7 @@ where
     #[inline(always)]
     fn remove(&mut self, ptr: usize) -> Option<usize> {
         let x = self.0.iter().enumerate().find(|x| match x.1 {
-            Some(x) => x.ptr() as usize == ptr,
+            Some(x) => unsafe { x.ptr() as usize == ptr },
             None => false,
         });
         match x {
