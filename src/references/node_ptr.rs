@@ -1,5 +1,6 @@
-use crate::{Node, Variant};
+use crate::{MemoryPolicy, Node, SelfRefCol, Variant};
 use core::fmt::Debug;
+use orx_pinned_vec::PinnedVec;
 
 /// A wrapper around a node pointer.
 pub struct NodePtr<V: Variant> {
@@ -38,6 +39,25 @@ impl<V: Variant> NodePtr<V> {
         }
     }
 
+    /// Returns true if:
+    ///
+    /// * `collection` owns this `NodePtr`, and
+    /// * the node, or corresponding element of the `collection`, that this pointer
+    ///   is pointing at is still active;
+    ///
+    /// false otherwise.
+    ///
+    /// It is safe to use the unsafe methods of `NodePtr` if `is_valid_for(col)`
+    /// returns true where `col` is the collection that the pointer is created from.
+    #[inline(always)]
+    pub fn is_valid_for<M, P>(&self, collection: &SelfRefCol<V, M, P>) -> bool
+    where
+        M: MemoryPolicy<V>,
+        P: PinnedVec<Node<V>>,
+    {
+        collection.nodes().contains_ptr(self.ptr) && unsafe { &*self.ptr }.is_active()
+    }
+
     /// Returns the const raw pointer to the node.
     ///
     /// # SAFETY
@@ -64,12 +84,12 @@ impl<V: Variant> NodePtr<V> {
         self.ptr
     }
 
-    // unsafe api
     /// Returns a reference to the node.
     ///
     /// # Safety
     ///
     /// The caller must ensure that:
+    ///
     /// * this pointer is created from a self referential collection,
     /// * the collection is still alive, and finally,
     /// * the memory state of the collection has not changed since the pointer was created.
@@ -83,6 +103,7 @@ impl<V: Variant> NodePtr<V> {
     /// # Safety
     ///
     /// The caller must ensure that:
+    ///
     /// * this pointer is created from a self referential collection,
     /// * the collection is still alive, and finally,
     /// * the memory state of the collection has not changed since the pointer was created.
