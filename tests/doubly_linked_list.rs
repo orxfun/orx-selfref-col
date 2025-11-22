@@ -44,17 +44,17 @@ where
     let old_idx = col.node_ptr_at_pos(occupied);
 
     if let Some(prev) = col.nodes()[occupied].prev().get() {
-        col.node_mut(prev).next_mut().set(Some(new_idx.clone()));
+        col.node_mut(prev).next_mut().set(Some(new_idx));
     }
 
     if let Some(next) = col.nodes()[occupied].next().get() {
-        col.node_mut(next).prev_mut().set(Some(new_idx.clone()));
+        col.node_mut(next).prev_mut().set(Some(new_idx));
     }
 
     col.move_node(vacant, occupied);
 
     if old_idx == col.ends().get(0).expect("nonempty list") {
-        col.ends_mut().set(0, Some(new_idx.clone()));
+        col.ends_mut().set(0, Some(new_idx));
     }
 
     if old_idx == col.ends().get(1).expect("nonempty list") {
@@ -258,12 +258,12 @@ where
                 };
 
                 match prev {
-                    Some(prev) => col.node_mut(prev).next_mut().set(next.clone()),
-                    None => col.ends_mut().set(0, next.clone()),
+                    Some(prev) => col.node_mut(prev).next_mut().set(next),
+                    None => col.ends_mut().set(0, next),
                 }
 
                 match next {
-                    Some(next) => col.node_mut(next).prev_mut().set(prev.clone()),
+                    Some(next) => col.node_mut(next).prev_mut().set(prev),
                     None => col.ends_mut().set(1, prev),
                 }
 
@@ -754,26 +754,25 @@ fn remove_at_test() {
 fn send_node_idx() {
     let mut col: Col<String, PolicyOnThreshold<2, String>> = SelfRefCol::new();
 
-    let mut indices = vec![];
-
-    indices.push(push_first(&mut col, 0.to_string()));
-    indices.push(push_back(&mut col, 1.to_string()));
-    indices.push(push_back(&mut col, 2.to_string()));
-    indices.push(push_back(&mut col, 3.to_string()));
-    indices.push(push_back(&mut col, 4.to_string()));
-    indices.push(push_back(&mut col, 5.to_string()));
-    indices.push(push_back(&mut col, 6.to_string()));
-    indices.push(push_back(&mut col, 7.to_string()));
-    indices.push(push_back(&mut col, 8.to_string()));
+    let indices = vec![
+        push_first(&mut col, 0.to_string()),
+        push_back(&mut col, 1.to_string()),
+        push_back(&mut col, 2.to_string()),
+        push_back(&mut col, 3.to_string()),
+        push_back(&mut col, 4.to_string()),
+        push_back(&mut col, 5.to_string()),
+        push_back(&mut col, 6.to_string()),
+        push_back(&mut col, 7.to_string()),
+        push_back(&mut col, 8.to_string()),
+    ];
 
     let state = col.memory_state();
 
     std::thread::scope(|s| {
         let indices = indices.as_slice();
         let col = &col;
-        for i in 0..9 {
+        for (i, idx) in indices.iter().enumerate().take(9) {
             s.spawn(move || {
-                let idx: NodeIdx<Doubly<String>> = indices[i];
                 assert!(idx.is_in_state(state));
                 assert!(idx.is_valid_for(col));
                 let value = idx.node(col).and_then(|n| n.data().cloned());
