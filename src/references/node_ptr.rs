@@ -44,9 +44,8 @@ impl<V: Variant> NodePtr<V> {
     ///
     /// This method is unsafe as `NodePtr` implements `Send` and `Sync`.
     ///
-    /// It is safe to call this method when we can validate that the collection
-    /// owning the node is alive with the same memory state when the node pointer
-    /// was created.
+    /// It is safe dereference the received pointer when we can validate that the collection
+    /// owning the node is alive with the same memory state when the node pointer was created.
     #[inline(always)]
     pub unsafe fn ptr(&self) -> *const Node<V> {
         self.ptr
@@ -58,9 +57,8 @@ impl<V: Variant> NodePtr<V> {
     ///
     /// This method is unsafe as `NodePtr` implements `Send` and `Sync`.
     ///
-    /// It is safe to call this method when we can validate that the collection
-    /// owning the node is alive with the same memory state when the node pointer
-    /// was created.
+    /// It is safe dereference the received pointer when we can validate that the collection
+    /// owning the node is alive with the same memory state when the node pointer was created.
     #[inline(always)]
     pub unsafe fn ptr_mut(&self) -> *mut Node<V> {
         self.ptr

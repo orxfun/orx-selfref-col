@@ -96,7 +96,8 @@ where
     /// None if the pointer is not valid.
     #[inline(always)]
     pub fn position_of(&self, node_ptr: &NodePtr<V>) -> Option<usize> {
-        self.nodes.index_of_ptr(node_ptr.ptr_mut())
+        // SAFETY: it is safe to call PinnedVec::index_of_ptr with any pointer
+        self.nodes.index_of_ptr(unsafe { node_ptr.ptr_mut() })
     }
 
     /// Returns the position of the node with the given `node_ptr`.
@@ -106,8 +107,9 @@ where
     /// Panics if the pointer is not valid.
     #[inline(always)]
     pub fn position_of_unchecked(&self, node_ptr: &NodePtr<V>) -> usize {
+        // SAFETY: it is safe to call PinnedVec::index_of_ptr with any pointer
         self.nodes
-            .index_of_ptr(node_ptr.ptr_mut())
+            .index_of_ptr(unsafe { node_ptr.ptr_mut() })
             .expect("Pointer does not belong to the collection")
     }
 

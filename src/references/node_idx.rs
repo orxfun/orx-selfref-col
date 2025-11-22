@@ -56,7 +56,10 @@ where
     #[inline(always)]
     pub fn new(state: MemoryState, node_ptr: &NodePtr<V>) -> Self {
         Self {
-            ptr: node_ptr.ptr_mut(),
+            // SAFETY: it is safe to create NodeIdx from any state and node-pointer,
+            // since access to the node is provided only by safe methods which checks
+            // both validity of the pointer and memory state.
+            ptr: unsafe { node_ptr.ptr_mut() },
             state,
         }
     }
