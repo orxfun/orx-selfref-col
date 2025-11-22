@@ -75,8 +75,8 @@ impl<V: Variant> RefsVec<V> {
     }
 
     /// Returns the i-th node pointer; None if out of bounds.
-    pub fn get(&self, i: usize) -> Option<&NodePtr<V>> {
-        self.0.get(i)
+    pub fn get(&self, i: usize) -> Option<NodePtr<V>> {
+        self.0.get(i).copied()
     }
 
     /// Creates an iterator over node pointers of the references collection.
@@ -103,8 +103,8 @@ impl<V: Variant> RefsVec<V> {
     /// and returns the position that the new reference is inserted to.
     ///
     /// Does nothing leaving the children unchanged if the `pivot_ptr` reference does not exists, and returns None.
-    pub fn push_before(&mut self, pivot_ptr: &NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
-        let position = self.iter().position(|x| x == pivot_ptr);
+    pub fn push_before(&mut self, pivot_ptr: NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
+        let position = self.iter().position(|x| *x == pivot_ptr);
         if let Some(p) = position {
             self.0.insert(p, node_ptr);
         }
@@ -115,8 +115,8 @@ impl<V: Variant> RefsVec<V> {
     /// and returns the position that the new reference is inserted to.
     ///
     /// Does nothing leaving the children unchanged if the `pivot_ptr` reference does not exists, and returns None.
-    pub fn push_after(&mut self, pivot_ptr: &NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
-        let position = self.iter().position(|x| x == pivot_ptr);
+    pub fn push_after(&mut self, pivot_ptr: NodePtr<V>, node_ptr: NodePtr<V>) -> Option<usize> {
+        let position = self.iter().position(|x| *x == pivot_ptr);
         if let Some(p) = position {
             self.0.insert(p + 1, node_ptr);
         }
@@ -129,10 +129,10 @@ impl<V: Variant> RefsVec<V> {
     /// Does nothing and returns None if the `old_node_ptr` is absent.
     pub fn replace_with(
         &mut self,
-        old_node_ptr: &NodePtr<V>,
+        old_node_ptr: NodePtr<V>,
         new_node_ptr: NodePtr<V>,
     ) -> Option<usize> {
-        let position = self.0.iter().position(|x| x == old_node_ptr);
+        let position = self.0.iter().position(|x| *x == old_node_ptr);
         if let Some(p) = position {
             self.0[p] = new_node_ptr;
         }
