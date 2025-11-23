@@ -96,7 +96,7 @@ impl<V: Variant> NodePtr<V> {
     ///
     /// # Safety
     ///
-    /// It is to directly access the underlying node if we know that `is_valid_for(col)` would
+    /// It is safe to directly access the underlying node if we know that `is_valid_for(col)` would
     /// return `true` where `col` is the collection that this pointer is created from.
     #[inline]
     pub unsafe fn node<'a>(self) -> &'a Node<V> {
