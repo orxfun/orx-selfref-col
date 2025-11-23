@@ -26,6 +26,16 @@ impl<V: Variant> Clone for NodeIdx<V> {
     }
 }
 
+// Despite holding pointer to a Node, `NodeIdx` implements `Send` since it does not provide access
+// to the pointer with the safe api. Unsafe api can be used to access the node. Safety of such access
+// can be verified by the `is_valid_for` method.
+unsafe impl<V: Variant> Send for NodeIdx<V> where V::Item: Send {}
+
+// Despite holding pointer to a Node, `NodeIdx` implements `Sync` since it does not provide access
+// to the pointer with the safe api. Unsafe api can be used to access the node. Safety of such access
+// can be verified by the `is_valid_for` method.
+unsafe impl<V: Variant> Sync for NodeIdx<V> where V::Item: Sync {}
+
 impl<V: Variant> Debug for NodeIdx<V> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("NodeIdx")
@@ -50,39 +60,65 @@ where
     /// Creates a new index for the element at the given `node_ptr`
     /// and the collection with the given `state`.
     #[inline(always)]
-    pub fn new(state: MemoryState, node_ptr: &NodePtr<V>) -> Self {
+    pub fn new(state: MemoryState, node_ptr: NodePtr<V>) -> Self {
         Self {
-            ptr: node_ptr.ptr_mut(),
+            // SAFETY: it is safe to create NodeIdx from any state and node-pointer,
+            // since access to the node is provided only by safe methods which checks
+            // both validity of the pointer and memory state.
+            ptr: unsafe { node_ptr.ptr_mut() },
             state,
         }
     }
 
     /// Checks whether or not the `state` of the index matches that of this index.
     #[inline(always)]
-    pub fn is_in_state(&self, state: MemoryState) -> bool {
+    pub fn is_in_state(self, state: MemoryState) -> bool {
         self.state == state
     }
 
+    /// Returns the const raw pointer to the node.
+    ///
+    /// # SAFETY
+    ///
+    /// This method is unsafe as `NodeIdx` implements `Send` and `Sync`.
+    ///
+    /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
+    /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
-    pub(crate) fn ptr(&self) -> *const Node<V> {
+    pub(crate) unsafe fn ptr(self) -> *const Node<V> {
         self.ptr
     }
 
+    /// Returns the mut raw pointer to the node.
+    ///
+    /// # SAFETY
+    ///
+    /// This method is unsafe as `NodeIdx` implements `Send` and `Sync`.
+    ///
+    /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
+    /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
-    pub(crate) fn ptr_mut(&self) -> *mut Node<V> {
+    pub(crate) unsafe fn ptr_mut(self) -> *mut Node<V> {
         self.ptr
     }
 
     /// Returns the node pointer if the index is in the same state as the `collection_state`,
     /// None otherwise.
+    ///
+    /// # SAFETY
+    ///
+    /// This method is unsafe as `NodeIdx` implements `Send` and `Sync`.
+    ///
+    /// It is safe dereference the received pointer if we know that `is_valid_for(col)` would
+    /// return `true` where `col` is the collection that this pointer is created from.
     #[inline(always)]
-    pub fn get_ptr(&self, collection_state: MemoryState) -> Option<*mut Node<V>> {
+    pub unsafe fn get_ptr(self, collection_state: MemoryState) -> Option<*mut Node<V>> {
         self.state.eq(&collection_state).then_some(self.ptr)
     }
 
     /// Converts the node index into a node pointer.
     #[inline(always)]
-    pub fn node_ptr(&self) -> NodePtr<V> {
+    pub fn node_ptr(self) -> NodePtr<V> {
         NodePtr::new(self.ptr)
     }
 
@@ -92,8 +128,11 @@ where
     ///
     /// * It is created from the given `collection`.
     /// * Memory state of the `collection` has not changed since this index was created.
+    ///
+    /// It is safe to use the unsafe methods of `NodeIdx` if `is_valid_for(col)`
+    /// returns true where `col` is the collection that the index is created from.
     #[inline(always)]
-    pub fn is_valid_for<M, P>(&self, collection: &SelfRefCol<V, M, P>) -> bool
+    pub fn is_valid_for<M, P>(self, collection: &SelfRefCol<V, M, P>) -> bool
     where
         M: MemoryPolicy<V>,
         P: PinnedVec<Node<V>>,
@@ -101,5 +140,18 @@ where
         self.state == collection.memory_state()
             && collection.nodes().contains_ptr(self.ptr)
             && unsafe { &*self.ptr }.is_active()
+    }
+
+    /// Returns a reference to the node that this `NodeIdx` corresponds to;
+    /// returns None if the index is invalid.
+    ///
+    /// See [`Self::is_valid_for`] for validity conditions.
+    #[inline(always)]
+    pub fn node<M, P>(self, collection: &SelfRefCol<V, M, P>) -> Option<&Node<V>>
+    where
+        M: MemoryPolicy<V>,
+        P: PinnedVec<Node<V>>,
+    {
+        collection.node_from_idx(self)
     }
 }

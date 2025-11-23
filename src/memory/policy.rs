@@ -45,7 +45,7 @@ pub trait MemoryPolicy<V: Variant>: Clone + Default {
     ///
     /// [`MemoryReclaimNever`]: crate::MemoryReclaimNever
     /// [`MemoryReclaimOnThreshold`]: crate::MemoryReclaimOnThreshold
-    fn reclaim_closed_nodes<P>(col: &mut CoreCol<V, P>, closed_node_ptr: &NodePtr<V>) -> bool
+    fn reclaim_closed_nodes<P>(col: &mut CoreCol<V, P>, closed_node_ptr: NodePtr<V>) -> bool
     where
         P: PinnedVec<Node<V>>;
 }
