@@ -12,8 +12,9 @@
 ### Safe
 
 It is tricky to implement safe self referential collections, `SelfRefCol` provides a safe and convenient api to enable them with the following approach:
-* memory locations of elements of the collection will never change unless explicitly changed due to the pinned elements guarantees of the underlying [`PinnedVec`](https://crates.io/crates/orx-pinned-vec),
-* all references will be ensured to be among elements of the same collection.
+
+- memory locations of elements of the collection will never change unless explicitly changed due to the pinned elements guarantees of the underlying [`PinnedVec`](https://crates.io/crates/orx-pinned-vec),
+- all references will be ensured to be among elements of the same collection.
 
 ### Efficient
 
@@ -24,20 +25,20 @@ Furthermore, in this way, elements of the collection are stored close to each ot
 
 Note that this core structure is capable of representing a wide range of self referential collections, where the variant is conveniently defined by expressive trait type definitions.
 
-* `V: Variant`: defines the structure of the collection with the following:
-  * `V::Item`: is the type of the items or elements.
-  * `V::Prev`: defines how references to previous elements will be stored.
-    * `RefsNone`: there is no previous reference of elements.
-    * `RefsSingle`: there is either one or no previous reference of elements, stored as `Option<&Node>`.
-    * `RefsArray`: there are multiple possible previous references up to a constant number `N`, stored as `[Option<&Node>; N]`.
-    * `RefsVec`: there are multiple possible previous references, stored as `Vec<&Node>`.
-  * `V::Next`: defines how references to next elements will be stored:
-    * Similarly, represented as either one of `RefsNone` or `RefsSingle` or `RefsArray` or `RefsVec`.
-  * `V::Ends`: defines how references to ends of the collection will be stored:
-    * Similarly, represented as either one of `RefsNone` or `RefsSingle` or `RefsArray` or `RefsVec`.
-* `M: MemoryReclaimPolicy`: defines how memory of closed nodes will be reclaimed:
-    * `MemoryReclaimNever` will never claim closed nodes.
-    * `MemoryReclaimOnThreshold<D>` will claim memory of closed nodes whenever the ratio of closed nodes exceeds one over `2^D`.
+- `V: Variant`: defines the structure of the collection with the following:
+  - `V::Item`: is the type of the items or elements.
+  - `V::Prev`: defines how references to previous elements will be stored.
+    - `RefsNone`: there is no previous reference of elements.
+    - `RefsSingle`: there is either one or no previous reference of elements, stored as `Option<&Node>`.
+    - `RefsArray`: there are multiple possible previous references up to a constant number `N`, stored as `[Option<&Node>; N]`.
+    - `RefsVec`: there are multiple possible previous references, stored as `Vec<&Node>`.
+  - `V::Next`: defines how references to next elements will be stored:
+    - Similarly, represented as either one of `RefsNone` or `RefsSingle` or `RefsArray` or `RefsVec`.
+  - `V::Ends`: defines how references to ends of the collection will be stored:
+    - Similarly, represented as either one of `RefsNone` or `RefsSingle` or `RefsArray` or `RefsVec`.
+- `M: MemoryReclaimPolicy`: defines how memory of closed nodes will be reclaimed:
+  - `MemoryReclaimNever` will never claim closed nodes.
+  - `MemoryReclaimOnThreshold<D>` will claim memory of closed nodes whenever the ratio of closed nodes exceeds one over `2^D`.
 
 ### Example
 
@@ -99,15 +100,16 @@ In this sense `NodeIndex` to a `SelfRefCol` is sort of analogous to `usize` to s
 
 However, it puts a special emphasis on safety and correctness. The following invalid uses cannot happen with `NodeIndex` and `SelfRefCol`. The following safety guarantees are provided by the self referential collection:
 
-* cannot use a `NodeIndex` on a wrong `SelfRefCol`
-* cannot use a `NodeIndex` after the corresponding element is removed
-* cannot use a `NodeIndex` after a reorganization of the elements
-
+- cannot use a `NodeIndex` on a wrong `SelfRefCol`
+- cannot use a `NodeIndex` after the corresponding element is removed
+- cannot use a `NodeIndex` after a reorganization of the elements
 
 ## Crates using `SelfRefCol`
 
 The following crates use `SelfRefCol` to conveniently build the corresponding data structure:
-* [orx-linked-list](https://crates.io/crates/orx-linked-list): implements singly and doubly linked lists.
+
+- [orx-linked-list](https://crates.io/crates/orx-linked-list) implements singly and doubly linked lists.
+- [orx-tree](https://crates.io/crates/orx-tree) implements a tree with convenient, efficient, parallelizable growth, mutation and traversal features.
 
 ## Contributing
 
