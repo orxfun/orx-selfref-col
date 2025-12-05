@@ -16,6 +16,14 @@ pub struct MemoryReclaimOnThreshold<const D: usize, V: Variant, R: MemoryReclaim
     phantom: PhantomData<(V, R)>,
 }
 
+/// # SAFETY:
+///
+/// Memory reclaimers are zero-sized static types.
+unsafe impl<const D: usize, V: Variant, R: MemoryReclaimer<V>> Sync
+    for MemoryReclaimOnThreshold<D, V, R>
+{
+}
+
 impl<const D: usize, V: Variant, R: MemoryReclaimer<V>> Default
     for MemoryReclaimOnThreshold<D, V, R>
 {

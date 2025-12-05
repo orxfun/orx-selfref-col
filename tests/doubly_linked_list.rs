@@ -6,6 +6,8 @@ use std::marker::PhantomData;
 
 struct Doubly<T>(PhantomData<T>);
 
+unsafe impl<T> Sync for Doubly<T> {}
+
 type PolicyNever = MemoryReclaimNever;
 type PolicyOnThreshold<const D: usize, T> =
     MemoryReclaimOnThreshold<D, Doubly<T>, OnThresholdReclaimer>;
