@@ -9,6 +9,8 @@ use std::{
 
 struct Singly<T>(PhantomData<T>);
 
+unsafe impl<T> Sync for Singly<T> {}
+
 impl<T> Variant for Singly<T> {
     type Item = T;
 

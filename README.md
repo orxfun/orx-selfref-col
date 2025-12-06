@@ -52,6 +52,7 @@ use core::marker::PhantomData;
 pub struct Singly<T> {
     p: PhantomData<T>,
 }
+unsafe impl<T> Sync for Singly<T> {}
 impl<T> Variant for Singly<T> {
     type Item = T;
     type Prev = RefsNone;
@@ -62,6 +63,7 @@ impl<T> Variant for Singly<T> {
 pub struct Doubly<T> {
     p: PhantomData<T>,
 }
+unsafe impl<T> Sync for Doubly<T> {}
 impl<T> Variant for Doubly<T> {
     type Item = T;
     type Prev = RefsSingle<Self>;
@@ -72,6 +74,7 @@ impl<T> Variant for Doubly<T> {
 pub struct BinaryTree<T> {
     p: PhantomData<T>,
 }
+unsafe impl<T> Sync for BinaryTree<T> {}
 impl<T> Variant for BinaryTree<T> {
     type Item = T;
     type Prev = RefsSingle<Self>;   // parent
@@ -82,6 +85,7 @@ impl<T> Variant for BinaryTree<T> {
 pub struct DynamicTree<T> {
     p: PhantomData<T>,
 }
+unsafe impl<T> Sync for DynamicTree<T> {}
 impl<T> Variant for DynamicTree<T> {
     type Item = T;
     type Prev = RefsSingle<Self>;   // parent

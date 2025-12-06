@@ -2,7 +2,7 @@ use crate::{CoreCol, Node, Variant};
 use orx_pinned_vec::PinnedVec;
 
 /// Memory reclaimer which reorganizes the collection nodes and brings node utilization to 100%.
-pub trait MemoryReclaimer<V>: Clone + Default
+pub trait MemoryReclaimer<V>: Clone + Default + Sync
 where
     V: Variant,
 {

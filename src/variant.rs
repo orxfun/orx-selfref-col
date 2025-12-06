@@ -1,7 +1,7 @@
 use crate::Refs;
 
 /// Variant defining `SelfRefCol` specifications.
-pub trait Variant: Sized {
+pub trait Variant: Sized + Sync {
     /// Elements of the collection.
     type Item;
 

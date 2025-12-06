@@ -15,7 +15,7 @@ use orx_pinned_vec::PinnedVec;
 ///
 /// [`MemoryReclaimOnThreshold::<D>`]: crate::MemoryReclaimOnThreshold
 /// [`MemoryReclaimNever`]: crate::MemoryReclaimNever
-pub trait MemoryPolicy<V: Variant>: Clone + Default {
+pub trait MemoryPolicy<V: Variant>: Clone + Default + Sync {
     /// Reclaims closed nodes.
     ///
     /// Assume that **A** below stands for active nodes and **x** designates a closed or popped node.
