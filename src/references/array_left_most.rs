@@ -194,6 +194,37 @@ impl<const N: usize, V: Variant> RefsArrayLeftMost<N, V> {
         position
     }
 
+    pub fn swap(&mut self, ptr_a: NodePtr<V>, ptr_b: NodePtr<V>) -> Option<(usize, usize)> {
+        let (pos_a, pos_b) = {
+            let mut a = None;
+            let mut b = None;
+            for (i, x) in self.array[..self.len].iter().enumerate() {
+                match *x {
+                    x if x == Some(ptr_a) => {
+                        a = Some(i);
+                        if b.is_some() {
+                            break;
+                        }
+                    }
+                    x if x == Some(ptr_b) => {
+                        b = Some(i);
+                        if a.is_some() {
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            match (a, b) {
+                (Some(a), Some(b)) => Some((a, b)),
+                _ => None,
+            }
+        }?;
+        self.array[pos_a] = Some(ptr_b);
+        self.array[pos_b] = Some(ptr_a);
+        Some((pos_a, pos_b))
+    }
+
     // helpers
     fn assert_has_room_for<const P: usize>(&self) {
         assert!(
