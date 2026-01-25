@@ -138,4 +138,40 @@ impl<V: Variant> RefsVec<V> {
         }
         position
     }
+
+    /// If both pointers `ptr_a` and `ptr_b` exist as children, this method swaps their positions
+    /// and returns `(pos_a, pos_b)` where `pos_a` (`pos_b`) is the original (before the swap) position
+    /// of the child `ptr_a` (`ptr_b`).
+    ///
+    /// Does nothing and returns None if either of the pointers is absent.
+    pub fn swap(&mut self, ptr_a: NodePtr<V>, ptr_b: NodePtr<V>) -> Option<(usize, usize)> {
+        let (pos_a, pos_b) = {
+            let mut a = None;
+            let mut b = None;
+            for (i, x) in self.0.iter().enumerate() {
+                match *x {
+                    x if x == ptr_a => {
+                        a = Some(i);
+                        if b.is_some() {
+                            break;
+                        }
+                    }
+                    x if x == ptr_b => {
+                        b = Some(i);
+                        if a.is_some() {
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            match (a, b) {
+                (Some(a), Some(b)) => Some((a, b)),
+                _ => None,
+            }
+        }?;
+        self.0[pos_a] = ptr_b;
+        self.0[pos_b] = ptr_a;
+        Some((pos_a, pos_b))
+    }
 }
